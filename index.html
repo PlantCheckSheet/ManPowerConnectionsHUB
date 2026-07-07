@@ -3,17 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>PlantCheckSheet | Portal</title>
+  <title>ManPowerConnections | Portal</title>
 
   <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
 
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="PlantCheckSheet">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-title" content="ManPowerConnections">
+  <meta name="theme-color" content="#12b8d4">
 
   <style>
+    :root {
+      --mpc-cyan: #12b8d4;
+      --mpc-cyan-dark: #0797b3;
+      --mpc-charcoal: #25313b;
+      --mpc-slate: #5e6972;
+      --mpc-light: #f5f8fa;
+      --mpc-white: #ffffff;
+      --mpc-border: rgba(18,184,212,0.22);
+      --mpc-shadow: 0 18px 45px rgba(0,0,0,0.28);
+    }
+
     * {
       box-sizing: border-box;
       font-family: "Segoe UI", Arial, sans-serif;
@@ -27,7 +38,9 @@
     body {
       min-height: 100vh;
       background:
-        linear-gradient(rgba(15,23,42,0.78), rgba(15,23,42,0.86)),
+        radial-gradient(circle at top left, rgba(18,184,212,0.28), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(150,158,163,0.32), transparent 36%),
+        linear-gradient(135deg, rgba(37,49,59,0.93), rgba(8,18,27,0.96)),
         url("excavator.jpg");
       background-size: cover;
       background-position: center;
@@ -35,90 +48,136 @@
       color: #fff;
     }
 
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent 85%);
+      z-index: -1;
+    }
+
     .app-header {
-      background: linear-gradient(135deg, #f4b400, #e0a400);
-      color: #111;
-      padding: 20px 16px 28px;
-      border-bottom-left-radius: 28px;
-      border-bottom-right-radius: 28px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, rgba(18,184,212,0.96), rgba(7,151,179,0.96));
+      color: #fff;
+      padding: 22px 16px 34px;
+      border-bottom-left-radius: 34px;
+      border-bottom-right-radius: 34px;
+      box-shadow: var(--mpc-shadow);
       text-align: center;
     }
 
+    .app-header::after {
+      content: "";
+      position: absolute;
+      left: -8%;
+      right: -8%;
+      bottom: -42px;
+      height: 88px;
+      background: rgba(150,158,163,0.32);
+      border-radius: 50% 50% 0 0;
+    }
+
     .header-badge {
+      position: relative;
+      z-index: 1;
       display: inline-block;
       margin-bottom: 10px;
-      background: rgba(255,255,255,0.25);
-      padding: 6px 14px;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 7px 16px;
       border-radius: 999px;
       font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 1px;
+      font-weight: 800;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
     }
 
     .app-header h1 {
+      position: relative;
+      z-index: 1;
       margin: 6px 0 6px;
-      font-size: 26px;
-      font-weight: 800;
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -0.4px;
+      text-shadow: 0 3px 12px rgba(0,0,0,0.2);
     }
 
     .header-sub {
+      position: relative;
+      z-index: 1;
       font-size: 13px;
-      font-weight: 600;
-      opacity: 0.9;
+      font-weight: 700;
+      opacity: 0.95;
     }
 
     .header-date {
-      margin-top: 6px;
+      position: relative;
+      z-index: 1;
+      margin-top: 8px;
       font-size: 12px;
-      font-weight: 600;
-      opacity: 0.85;
+      font-weight: 700;
+      opacity: 0.9;
     }
 
     .logo-section {
       text-align: center;
       padding: 0;
-      margin-top: -18px;
+      margin-top: -24px;
+      position: relative;
+      z-index: 2;
     }
 
     .logo-section img {
-      max-width: 420px;
-      max-height: 160px;
-      width: 82%;
+      max-width: 430px;
+      max-height: 165px;
+      width: 84%;
       height: auto;
-      filter:
-        drop-shadow(0 0 4px rgba(255,255,255,0.95))
-        drop-shadow(0 0 10px rgba(255,255,255,0.75))
-        drop-shadow(0 8px 16px rgba(0,0,0,0.45));
+      padding: 18px 22px;
+      background: rgba(255,255,255,0.96);
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,0.65);
+      box-shadow: 0 18px 42px rgba(0,0,0,0.32);
     }
 
     main {
-      max-width: 1000px;
-      margin: 12px auto 0;
+      max-width: 1100px;
+      margin: 22px auto 0;
       padding: 0 16px 28px;
       width: 100%;
     }
 
     .intro-card {
-      background: rgba(255,255,255,0.96);
-      color: #1f2933;
-      border-radius: 18px;
-      padding: 22px 18px;
+      background: rgba(255,255,255,0.94);
+      color: var(--mpc-charcoal);
+      border-radius: 22px;
+      padding: 24px 18px;
       margin-bottom: 18px;
       text-align: center;
-      box-shadow: 0 14px 34px rgba(0,0,0,0.18);
+      border: 1px solid var(--mpc-border);
+      box-shadow: 0 16px 36px rgba(0,0,0,0.22);
+      backdrop-filter: blur(10px);
     }
 
     .intro-card h2 {
       margin: 0 0 8px;
-      font-size: 22px;
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--mpc-charcoal);
     }
 
     .intro-card p {
       margin: 0;
       font-size: 14px;
-      color: #64748b;
-      font-weight: 600;
+      color: var(--mpc-slate);
+      font-weight: 700;
     }
 
     .card-container {
@@ -128,13 +187,24 @@
     }
 
     .card {
-      background: rgba(255,255,255,0.96);
-      color: #1f2933;
+      position: relative;
+      overflow: hidden;
+      background: rgba(255,255,255,0.95);
+      color: var(--mpc-charcoal);
       padding: 22px;
-      border-radius: 18px;
-      border: 1px solid rgba(15,23,42,0.08);
-      box-shadow: 0 14px 34px rgba(0,0,0,0.18);
+      border-radius: 22px;
+      border: 1px solid var(--mpc-border);
+      box-shadow: 0 16px 36px rgba(0,0,0,0.22);
       transition: 0.25s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 5px;
+      background: linear-gradient(90deg, var(--mpc-cyan), #8f989d);
     }
 
     .card:active {
@@ -142,44 +212,49 @@
     }
 
     .card-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, #f4b400, #e0a400);
+      width: 46px;
+      height: 46px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--mpc-cyan), var(--mpc-cyan-dark));
+      color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 22px;
       margin-bottom: 12px;
+      box-shadow: 0 12px 24px rgba(18,184,212,0.28);
     }
 
     .card h2 {
       margin: 0 0 8px;
       font-size: 20px;
-      color: #1f2933;
+      color: var(--mpc-charcoal);
+      font-weight: 900;
     }
 
     .card p {
       font-size: 14px;
-      color: #64748b;
+      color: var(--mpc-slate);
       margin: 0 0 18px;
-      line-height: 1.4;
+      line-height: 1.45;
+      font-weight: 600;
     }
 
     .button {
       display: block;
       width: 100%;
       padding: 15px;
-      background: linear-gradient(135deg, #f4b400, #e0a400);
-      color: #111;
+      background: linear-gradient(135deg, var(--mpc-cyan), var(--mpc-cyan-dark));
+      color: #fff;
       text-decoration: none;
-      border-radius: 12px;
-      font-weight: 800;
+      border-radius: 14px;
+      font-weight: 900;
       text-align: center;
       border: none;
       cursor: pointer;
       transition: 0.25s ease;
       font-size: 15px;
+      box-shadow: 0 12px 22px rgba(18,184,212,0.25);
     }
 
     .button:active {
@@ -189,16 +264,18 @@
     .documents-section {
       display: none;
       margin-top: 18px;
-      background: rgba(255,255,255,0.96);
-      color: #1f2933;
-      border-radius: 18px;
+      background: rgba(255,255,255,0.95);
+      color: var(--mpc-charcoal);
+      border-radius: 22px;
       padding: 22px;
-      box-shadow: 0 14px 34px rgba(0,0,0,0.18);
+      border: 1px solid var(--mpc-border);
+      box-shadow: 0 16px 36px rgba(0,0,0,0.22);
     }
 
     .documents-section h2 {
       margin-top: 0;
       text-align: center;
+      color: var(--mpc-charcoal);
     }
 
     .site-buttons {
@@ -210,16 +287,17 @@
 
     .site-button {
       padding: 14px;
-      border-radius: 12px;
-      border: 2px solid #f4b400;
+      border-radius: 14px;
+      border: 2px solid var(--mpc-cyan);
       background: #fff;
-      color: #111;
-      font-weight: 800;
+      color: var(--mpc-charcoal);
+      font-weight: 900;
       cursor: pointer;
     }
 
     .site-button.active {
-      background: linear-gradient(135deg, #f4b400, #e0a400);
+      background: linear-gradient(135deg, var(--mpc-cyan), var(--mpc-cyan-dark));
+      color: #fff;
     }
 
     .document-list {
@@ -230,26 +308,28 @@
     .document-link {
       display: block;
       padding: 14px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
+      background: var(--mpc-light);
+      border: 1px solid #dce5ea;
+      border-left: 5px solid var(--mpc-cyan);
+      border-radius: 14px;
       text-decoration: none;
-      color: #1f2933;
-      font-weight: 700;
+      color: var(--mpc-charcoal);
+      font-weight: 800;
     }
 
     .empty-message {
       text-align: center;
-      color: #64748b;
-      font-weight: 700;
+      color: var(--mpc-slate);
+      font-weight: 800;
       padding: 16px;
     }
 
     footer {
       text-align: center;
       padding: 18px;
-      color: rgba(255,255,255,0.75);
+      color: rgba(255,255,255,0.78);
       font-size: 12px;
+      font-weight: 700;
     }
 
     @media (min-width: 700px) {
@@ -268,13 +348,13 @@
 
   <div class="app-header">
     <div class="header-badge">SITE PORTAL</div>
-    <h1>PlantCheckSheet Portal</h1>
+    <h1>ManPowerConnections Portal</h1>
     <div class="header-sub">Site Safety & Operations Hub</div>
     <div class="header-date" id="headerDate"></div>
   </div>
 
   <div class="logo-section">
-    <img src="logo.png" alt=" Logo">
+    <img src="manpower.png" alt="ManPowerConnections Logo">
   </div>
 
   <main>
@@ -331,7 +411,7 @@
   </main>
 
   <footer>
-    © 2026 EXAMPLE
+    © 2026 ManPowerConnections
   </footer>
 
   <script>
