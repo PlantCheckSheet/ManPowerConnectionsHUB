@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PlantCheckSheet | Portal</title>
+
+  <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PlantCheckSheet">
+  <meta name="theme-color" content="#0f172a">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    html, body {
+      margin: 0;
+      overflow-x: hidden;
+    }
+
+    body {
+      min-height: 100vh;
+      background:
+        linear-gradient(rgba(15,23,42,0.78), rgba(15,23,42,0.86)),
+        url("excavator.jpg");
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      color: #fff;
+    }
+
+    .app-header {
+      background: linear-gradient(135deg, #f4b400, #e0a400);
+      color: #111;
+      padding: 20px 16px 28px;
+      border-bottom-left-radius: 28px;
+      border-bottom-right-radius: 28px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      text-align: center;
+    }
+
+    .header-badge {
+      display: inline-block;
+      margin-bottom: 10px;
+      background: rgba(255,255,255,0.25);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .app-header h1 {
+      margin: 6px 0 6px;
+      font-size: 26px;
+      font-weight: 800;
+    }
+
+    .header-sub {
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0.9;
+    }
+
+    .header-date {
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      opacity: 0.85;
+    }
+
+    .logo-section {
+      text-align: center;
+      padding: 0;
+      margin-top: -18px;
+    }
+
+    .logo-section img {
+      max-width: 420px;
+      max-height: 160px;
+      width: 82%;
+      height: auto;
+      filter:
+        drop-shadow(0 0 4px rgba(255,255,255,0.95))
+        drop-shadow(0 0 10px rgba(255,255,255,0.75))
+        drop-shadow(0 8px 16px rgba(0,0,0,0.45));
+    }
+
+    main {
+      max-width: 1000px;
+      margin: 12px auto 0;
+      padding: 0 16px 28px;
+      width: 100%;
+    }
+
+    .intro-card {
+      background: rgba(255,255,255,0.96);
+      color: #1f2933;
+      border-radius: 18px;
+      padding: 22px 18px;
+      margin-bottom: 18px;
+      text-align: center;
+      box-shadow: 0 14px 34px rgba(0,0,0,0.18);
+    }
+
+    .intro-card h2 {
+      margin: 0 0 8px;
+      font-size: 22px;
+    }
+
+    .intro-card p {
+      margin: 0;
+      font-size: 14px;
+      color: #64748b;
+      font-weight: 600;
+    }
+
+    .card-container {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.96);
+      color: #1f2933;
+      padding: 22px;
+      border-radius: 18px;
+      border: 1px solid rgba(15,23,42,0.08);
+      box-shadow: 0 14px 34px rgba(0,0,0,0.18);
+      transition: 0.25s ease;
+    }
+
+    .card:active {
+      transform: scale(0.98);
+    }
+
+    .card-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #f4b400, #e0a400);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      margin-bottom: 12px;
+    }
+
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 20px;
+      color: #1f2933;
+    }
+
+    .card p {
+      font-size: 14px;
+      color: #64748b;
+      margin: 0 0 18px;
+      line-height: 1.4;
+    }
+
+    .button {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #f4b400, #e0a400);
+      color: #111;
+      text-decoration: none;
+      border-radius: 12px;
+      font-weight: 800;
+      text-align: center;
+      border: none;
+      cursor: pointer;
+      transition: 0.25s ease;
+      font-size: 15px;
+    }
+
+    .button:active {
+      transform: scale(0.96);
+    }
+
+    .documents-section {
+      display: none;
+      margin-top: 18px;
+      background: rgba(255,255,255,0.96);
+      color: #1f2933;
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 14px 34px rgba(0,0,0,0.18);
+    }
+
+    .documents-section h2 {
+      margin-top: 0;
+      text-align: center;
+    }
+
+    .site-buttons {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .site-button {
+      padding: 14px;
+      border-radius: 12px;
+      border: 2px solid #f4b400;
+      background: #fff;
+      color: #111;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .site-button.active {
+      background: linear-gradient(135deg, #f4b400, #e0a400);
+    }
+
+    .document-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .document-link {
+      display: block;
+      padding: 14px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      text-decoration: none;
+      color: #1f2933;
+      font-weight: 700;
+    }
+
+    .empty-message {
+      text-align: center;
+      color: #64748b;
+      font-weight: 700;
+      padding: 16px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 18px;
+      color: rgba(255,255,255,0.75);
+      font-size: 12px;
+    }
+
+    @media (min-width: 700px) {
+      .card-container {
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .site-buttons {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="app-header">
+    <div class="header-badge">SITE PORTAL</div>
+    <h1>PlantCheckSheet Portal</h1>
+    <div class="header-sub">Site Safety & Operations Hub</div>
+    <div class="header-date" id="headerDate"></div>
+  </div>
+
+  <div class="logo-section">
+    <img src="logo.png" alt=" Logo">
+  </div>
+
+  <main>
+    <div class="intro-card">
+      <h2>Welcome</h2>
+      <p>Select the system you need below.</p>
+    </div>
+
+    <div class="card-container">
+
+      <div class="card">
+        <div class="card-icon">👷</div>
+        <h2>Sign In / Out Sheet</h2>
+        <p>Manage and record site attendance quickly and securely.</p>
+        <a class="button" href="https://plantchecksheet.github.io/SignInSignOut/">
+          Sign In/Sign Out
+        </a>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">✅</div>
+        <h2>Plant Check Sheet</h2>
+        <p>Complete daily plant and machinery inspections on site.</p>
+        <a class="button" href="https://plantchecksheet.github.io/PlantCheck/">
+          Plant Checks
+        </a>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">📍</div>
+        <h2>Manager View</h2>
+        <p>Live view of workers currently on site and active attendance.</p>
+        <a class="button" href="https://plantchecksheet.github.io/SignInSignOut/manager-view.html">
+          Open Manager View
+        </a>
+      </div>
+
+     <div class="card">
+  <div class="card-icon">📄</div>
+  <h2>Document Portal</h2>
+  <p>View site-specific RAMS and documents for your current site.</p>
+  <a class="button" href="document-portal.html">
+    Open Documents
+  </a>
+</div>
+
+    
+
+      <div class="document-list" id="documentList">
+        <div class="empty-message">Select a site to view documents.</div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    © 2026 EXAMPLE
+  </footer>
+
+  <script>
+    const headerDate = document.getElementById("headerDate");
+    const today = new Date();
+    const options = { day: "numeric", month: "short", year: "numeric" };
+    headerDate.textContent = today.toLocaleDateString("en-GB", options);
+
+    /*
+      Replace the example links below with your real Google Drive document links.
+
+      Recommended Drive setup:
+      - Create a folder called RAMS
+      - Inside it create folders:
+        - Work
+        - Tesco
+        - Home
+      - Upload the correct documents into each folder
+      - Right-click each document > Share > Copy link
+      - Paste the link below
+    */
+
+    const documentsBySite = {
+      work: [
+        {
+          name: "Work - Risk Assessment",
+          url: "https://drive.google.com/your-work-risk-assessment-link"
+        },
+        {
+          name: "Work - Method Statement",
+          url: "https://drive.google.com/your-work-method-statement-link"
+        }
+      ],
+
+      tesco: [
+        {
+          name: "Tesco - Risk Assessment",
+          url: "https://drive.google.com/your-tesco-risk-assessment-link"
+        },
+        {
+          name: "Tesco - Method Statement",
+          url: "https://drive.google.com/your-tesco-method-statement-link"
+        }
+      ],
+
+      home: [
+        {
+          name: "Home - Risk Assessment",
+          url: "https://drive.google.com/your-home-risk-assessment-link"
+        },
+        {
+          name: "Home - Method Statement",
+          url: "https://drive.google.com/your-home-method-statement-link"
+        }
+      ]
+    };
+
+    function toggleDocuments() {
+      const section = document.getElementById("documentsSection");
+
+      if (section.style.display === "block") {
+        section.style.display = "none";
+      } else {
+        section.style.display = "block";
+        section.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+
+    function showDocuments(site, button) {
+      const documentList = document.getElementById("documentList");
+      const siteButtons = document.querySelectorAll(".site-button");
+
+      siteButtons.forEach(btn => btn.classList.remove("active"));
+      button.classList.add("active");
+
+      const documents = documentsBySite[site] || [];
+
+      if (documents.length === 0) {
+        documentList.innerHTML = `
+          <div class="empty-message">
+            No documents uploaded for this site yet.
+          </div>
+        `;
+        return;
+      }
+
+      documentList.innerHTML = documents.map(doc => `
+        <a class="document-link" href="${doc.url}" target="_blank" rel="noopener">
+          📄 ${doc.name}
+        </a>
+      `).join("");
+    }
+  </script>
+
+</body>
+</html>
