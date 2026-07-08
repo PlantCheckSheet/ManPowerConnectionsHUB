@@ -446,29 +446,17 @@
     /**********************************************************************
       LIVE GOOGLE APPS SCRIPT SETUP
       -------------------------------------------------------------------
-      When ready, replace DEMO_MODE with false and add your Apps Script URL.
+      This version is connected to your Google Apps Script Web App URL.
 
-      const DEMO_MODE = false;
-      const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx1WjCF-C-qliIWdeXL_btSRDH6gCejZUt0PdG4ggEuzrW3vnedxD23mJq5svWlrgUZ/exec";
-
-      Suggested Apps Script actions:
-      - getOperatives
-      - loginOperative
-      - checkVanStatus
-      - submitVanCheck
-      - getAssignedJobs
-      - uploadEvidence
-
-      Suggested Google Sheets tabs:
-      Operatives: Name | PIN | Active | VehicleReg
-      Jobs: Date | Operative | Site | JobName | FolderId | Status
-      Documents: JobId | FileName | FileUrl | Type
-      VanChecks: Timestamp | Operative | VehicleReg | Results | Notes
-      EvidenceUploads: Timestamp | Operative | JobId | Notes | FileUrls
+      Google Sheets tabs expected by the Apps Script:
+      Operatives: Name | PIN | Vehicle | Active
+      Jobs: Date | Operative | Site | Job Name | Folder ID | Status
+      Van Checks: Date | Timestamp | Operative | Vehicle | Mileage | Notes | Result
+      Photo Uploads: Date | Timestamp | Operative | Site | Job Name | File Name | File URL | Notes
     **********************************************************************/
 
-    const DEMO_MODE = true;
-    const WEB_APP_URL = "";
+    const DEMO_MODE = false;
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx1WjCF-C-qliIWdeXL_btSRDH6gCejZUt0PdG4ggEuzrW3vnedxD23mJq5svWlrgUZ/exec";
 
     const headerDate = document.getElementById("headerDate");
     const today = new Date();
@@ -487,70 +475,52 @@
       "Van secure and fit for work"
     ];
 
-    const demoOperatives = [
-      {
-        id: "op001",
-        name: "Stephen Smith",
-        pin: "1234",
-        vehicleReg: "VX22 ABC",
-        job: {
-          id: "job001",
-          site: "Birmingham",
-          jobName: "Birmingham Connection Works",
-          folderId: "PASTE_GOOGLE_DRIVE_FOLDER_ID_HERE",
-          documents: [
-            { name: "Birmingham - Job Pack", url: "https://drive.google.com/your-birmingham-job-pack-link" },
-            { name: "Birmingham - RAMS", url: "https://drive.google.com/your-birmingham-rams-link" },
-            { name: "Birmingham - Utility Drawings", url: "https://drive.google.com/your-birmingham-drawings-link" }
-          ]
-        }
-      },
-      {
-        id: "op002",
-        name: "John Jones",
-        pin: "5678",
-        vehicleReg: "AB12 CDE",
-        job: {
-          id: "job002",
-          site: "Coventry",
-          jobName: "Coventry Site Investigation",
-          folderId: "PASTE_GOOGLE_DRIVE_FOLDER_ID_HERE",
-          documents: [
-            { name: "Coventry - Job Pack", url: "https://drive.google.com/your-coventry-job-pack-link" },
-            { name: "Coventry - RAMS", url: "https://drive.google.com/your-coventry-rams-link" }
-          ]
-        }
-      },
-      {
-        id: "op003",
-        name: "Shaun Maley",
-        pin: "9999",
-        vehicleReg: "SM10 PCX",
-        job: {
-          id: "job003",
-          site: "Walsall",
-          jobName: "Walsall Trial Job Pack",
-          folderId: "PASTE_GOOGLE_DRIVE_FOLDER_ID_HERE",
-          documents: [
-            { name: "Walsall - Trial Job Pack", url: "https://drive.google.com/your-walsall-job-pack-link" },
-            { name: "Walsall - RAMS", url: "https://drive.google.com/your-walsall-rams-link" },
-            { name: "Walsall - Permit", url: "https://drive.google.com/your-walsall-permit-link" }
-          ]
-        }
-      }
-    ];
-
     let currentOperative = null;
     let vanCheckComplete = false;
 
-    function populateOperatives() {
-      const select = document.getElementById("operativeSelect");
-      demoOperatives.forEach(op => {
-        const option = document.createElement("option");
-        option.value = op.id;
-        option.textContent = op.name;
-        select.appendChild(option);
+    async function apiPost(payload) {
+      const response = await fetch(WEB_APP_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8"
+        },
+        body: JSON.stringify(payload)
       });
+
+      if (!response.ok) {
+        throw new Error("Apps Script connection failed");
+      }
+
+      return await response.json();
+    }
+
+    async function populateOperatives() {
+      const select = document.getElementById("operativeSelect");
+      select.innerHTML = `<option value="">Loading operatives...</option>`;
+
+      try {
+        const data = await apiPost({ action: "getOperatives" });
+
+        if (!data.success) {
+          select.innerHTML = `<option value="">Could not load operatives</option>`;
+          document.getElementById("loginMessage").innerHTML = `<div class="error">${data.message || "Could not load operatives from Google Sheets."}</div>`;
+          return;
+        }
+
+        select.innerHTML = `<option value="">Select your name...</option>`;
+
+        data.operatives.forEach(name => {
+          const option = document.createElement("option");
+          option.value = name;
+          option.textContent = name;
+          select.appendChild(option);
+        });
+
+      } catch (error) {
+        select.innerHTML = `<option value="">Could not load operatives</option>`;
+        document.getElementById("loginMessage").innerHTML = `<div class="error">Could not connect to Google Sheets. Check your Apps Script deployment and Web App URL.</div>`;
+        console.error(error);
+      }
     }
 
     function renderVanChecks() {
@@ -572,36 +542,78 @@
       `).join("");
     }
 
-    function loginOperative() {
-      const selectedId = document.getElementById("operativeSelect").value;
+    async function loginOperative() {
+      const selectedName = document.getElementById("operativeSelect").value;
       const enteredPin = document.getElementById("pinInput").value.trim();
       const message = document.getElementById("loginMessage");
       message.innerHTML = "";
 
-      const operative = demoOperatives.find(op => op.id === selectedId);
-
-      if (!operative) {
+      if (!selectedName) {
         message.innerHTML = `<div class="error">Please select your name.</div>`;
         return;
       }
 
-      if (operative.pin !== enteredPin) {
-        message.innerHTML = `<div class="error">Incorrect PIN. Please try again.</div>`;
+      if (!enteredPin) {
+        message.innerHTML = `<div class="error">Please enter your PIN.</div>`;
         return;
       }
 
-      currentOperative = operative;
-      vanCheckComplete = false;
+      try {
+        const loginData = await apiPost({
+          action: "login",
+          name: selectedName,
+          pin: enteredPin
+        });
 
-      document.getElementById("loginView").classList.add("hidden");
-      document.getElementById("dashboardView").classList.remove("hidden");
-      document.getElementById("welcomeTitle").textContent = `Welcome ${operative.name}`;
-      document.getElementById("jobSummary").textContent = `Today you are assigned to ${operative.job.jobName} in ${operative.job.site}.`;
-      document.getElementById("vehicleReg").value = operative.vehicleReg || "";
-      document.getElementById("signedInTime").textContent = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+        if (!loginData.success) {
+          message.innerHTML = `<div class="error">${loginData.message || "Incorrect name or PIN."}</div>`;
+          return;
+        }
 
-      lockJobAccess();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+        const dashboardData = await apiPost({
+          action: "getDashboard",
+          name: loginData.name
+        });
+
+        if (!dashboardData.success) {
+          message.innerHTML = `<div class="error">${dashboardData.message || "Could not load dashboard."}</div>`;
+          return;
+        }
+
+        currentOperative = {
+          name: loginData.name,
+          vehicleReg: loginData.vehicle || "",
+          job: dashboardData.job || null,
+          documents: dashboardData.documents || []
+        };
+
+        vanCheckComplete = dashboardData.vanCheckComplete === true;
+
+        document.getElementById("loginView").classList.add("hidden");
+        document.getElementById("dashboardView").classList.remove("hidden");
+        document.getElementById("welcomeTitle").textContent = `Welcome ${currentOperative.name}`;
+
+        if (currentOperative.job) {
+          document.getElementById("jobSummary").textContent = `Today you are assigned to ${currentOperative.job.jobName} in ${currentOperative.job.site}.`;
+        } else {
+          document.getElementById("jobSummary").textContent = `No active job has been assigned to you today.`;
+        }
+
+        document.getElementById("vehicleReg").value = currentOperative.vehicleReg || "";
+        document.getElementById("signedInTime").textContent = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+        if (vanCheckComplete) {
+          unlockJobAccess();
+        } else {
+          lockJobAccess();
+        }
+
+        window.scrollTo({ top: 0, behavior: "smooth" });
+
+      } catch (error) {
+        message.innerHTML = `<div class="error">Could not connect to Google Sheets. Check your Apps Script URL and deployment settings.</div>`;
+        console.error(error);
+      }
     }
 
     function lockJobAccess() {
@@ -627,7 +639,7 @@
       showPanel("documentsPanel");
     }
 
-    function submitVanCheck() {
+    async function submitVanCheck() {
       const message = document.getElementById("vanCheckMessage");
       message.innerHTML = "";
 
@@ -647,6 +659,7 @@
           message.innerHTML = `<div class="error">Please complete all van check items.</div>`;
           return;
         }
+
         if (selected.value === "Defect") hasDefect = true;
         results.push({ item: vanCheckItems[i], result: selected.value });
       }
@@ -656,34 +669,48 @@
         return;
       }
 
-      const payload = {
-        action: "submitVanCheck",
-        operative: currentOperative.name,
-        operativeId: currentOperative.id,
-        vehicleReg,
-        notes,
-        results,
-        timestamp: new Date().toISOString()
-      };
+      try {
+        const data = await apiPost({
+          action: "submitVanCheck",
+          name: currentOperative.name,
+          vehicle: vehicleReg,
+          mileage: "",
+          notes: JSON.stringify({ notes, checks: results }),
+          result: hasDefect ? "Defect Reported" : "All OK"
+        });
 
-      console.log("Van check payload ready for Apps Script:", payload);
-      message.innerHTML = `<div class="success">Van check submitted. Job access unlocked.</div>`;
+        if (!data.success) {
+          message.innerHTML = `<div class="error">${data.message || "Van check could not be submitted."}</div>`;
+          return;
+        }
 
-      setTimeout(unlockJobAccess, 600);
+        message.innerHTML = `<div class="success">Van check submitted. Job access unlocked.</div>`;
+        setTimeout(unlockJobAccess, 600);
+
+      } catch (error) {
+        message.innerHTML = `<div class="error">Could not submit van check. Check your Apps Script deployment.</div>`;
+        console.error(error);
+      }
     }
 
     function renderDocuments() {
       const list = document.getElementById("documentList");
       const intro = document.getElementById("documentsIntro");
-      const job = currentOperative.job;
-      intro.textContent = `${currentOperative.name} • ${job.jobName} • ${job.site}`;
 
-      if (!job.documents || job.documents.length === 0) {
-        list.innerHTML = `<div class="error">No documents are currently assigned to this job.</div>`;
+      if (!currentOperative.job) {
+        intro.textContent = `${currentOperative.name}`;
+        list.innerHTML = `<div class="error">No active job has been assigned to you today.</div>`;
         return;
       }
 
-      list.innerHTML = job.documents.map(doc => `
+      intro.textContent = `${currentOperative.name} • ${currentOperative.job.jobName} • ${currentOperative.job.site}`;
+
+      if (!currentOperative.documents || currentOperative.documents.length === 0) {
+        list.innerHTML = `<div class="error">No documents are currently assigned to this job folder.</div>`;
+        return;
+      }
+
+      list.innerHTML = currentOperative.documents.map(doc => `
         <a class="document-link" href="${doc.url}" target="_blank" rel="noopener">📄 ${doc.name}</a>
       `).join("");
     }
@@ -696,30 +723,63 @@
       document.getElementById(panelId).scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
-    function submitEvidence() {
+    async function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function submitEvidence() {
       const files = document.getElementById("evidencePhotos").files;
       const notes = document.getElementById("evidenceNotes").value.trim();
       const message = document.getElementById("evidenceMessage");
+
+      message.innerHTML = "";
+
+      if (!currentOperative.job) {
+        message.innerHTML = `<div class="error">No active job folder has been assigned.</div>`;
+        return;
+      }
 
       if (!files.length && !notes) {
         message.innerHTML = `<div class="error">Please add at least one photo or completion note.</div>`;
         return;
       }
 
-      const payload = {
-        action: "uploadEvidence",
-        operative: currentOperative.name,
-        operativeId: currentOperative.id,
-        jobId: currentOperative.job.id,
-        site: currentOperative.job.site,
-        folderId: currentOperative.job.folderId,
-        notes,
-        fileCount: files.length,
-        timestamp: new Date().toISOString()
-      };
+      if (!files.length) {
+        message.innerHTML = `<div class="error">Please add at least one photo to upload.</div>`;
+        return;
+      }
 
-      console.log("Evidence payload ready for Apps Script:", payload);
-      message.innerHTML = `<div class="success">Evidence captured for ${currentOperative.job.site}. In the live version this will upload into the assigned Google Drive folder.</div>`;
+      try {
+        message.innerHTML = `<div class="success">Uploading ${files.length} photo(s), please wait...</div>`;
+
+        for (const file of files) {
+          const fileData = await fileToBase64(file);
+
+          await apiPost({
+            action: "uploadPhoto",
+            name: currentOperative.name,
+            site: currentOperative.job.site,
+            jobName: currentOperative.job.jobName,
+            folderId: currentOperative.job.folderId,
+            notes,
+            fileName: file.name,
+            fileData
+          });
+        }
+
+        message.innerHTML = `<div class="success">Evidence uploaded to the assigned Google Drive job folder.</div>`;
+        document.getElementById("evidencePhotos").value = "";
+        document.getElementById("evidenceNotes").value = "";
+
+      } catch (error) {
+        message.innerHTML = `<div class="error">Could not upload evidence. Check the job Folder ID and Apps Script permissions.</div>`;
+        console.error(error);
+      }
     }
 
     function logoutOperative() {
