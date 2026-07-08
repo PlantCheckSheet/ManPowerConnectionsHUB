@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ManPowerConnections | Portal</title>
+  <title>ManPowerConnections | Operative Portal</title>
 
   <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
@@ -23,17 +23,13 @@
       --mpc-white: #ffffff;
       --mpc-border: rgba(18,184,212,0.22);
       --mpc-shadow: 0 18px 45px rgba(0,0,0,0.28);
+      --mpc-danger: #dc2626;
+      --mpc-warning: #f59e0b;
+      --mpc-success: #16a34a;
     }
 
-    * {
-      box-sizing: border-box;
-      font-family: "Segoe UI", Arial, sans-serif;
-    }
-
-    html, body {
-      margin: 0;
-      overflow-x: hidden;
-    }
+    * { box-sizing: border-box; font-family: "Segoe UI", Arial, sans-serif; }
+    html, body { margin: 0; overflow-x: hidden; }
 
     body {
       min-height: 100vh;
@@ -64,8 +60,7 @@
     .app-header {
       position: relative;
       overflow: hidden;
-      background:
-        linear-gradient(135deg, rgba(18,184,212,0.96), rgba(7,151,179,0.96));
+      background: linear-gradient(135deg, rgba(18,184,212,0.96), rgba(7,151,179,0.96));
       color: #fff;
       padding: 22px 16px 34px;
       border-bottom-left-radius: 34px;
@@ -77,17 +72,14 @@
     .app-header::after {
       content: "";
       position: absolute;
-      left: -8%;
-      right: -8%;
-      bottom: -42px;
+      left: -8%; right: -8%; bottom: -42px;
       height: 88px;
       background: rgba(150,158,163,0.32);
       border-radius: 50% 50% 0 0;
     }
 
+    .header-badge, .app-header h1, .header-sub, .header-date { position: relative; z-index: 1; }
     .header-badge {
-      position: relative;
-      z-index: 1;
       display: inline-block;
       margin-bottom: 10px;
       background: rgba(255,255,255,0.2);
@@ -101,8 +93,6 @@
     }
 
     .app-header h1 {
-      position: relative;
-      z-index: 1;
       margin: 6px 0 6px;
       font-size: 28px;
       font-weight: 900;
@@ -110,22 +100,8 @@
       text-shadow: 0 3px 12px rgba(0,0,0,0.2);
     }
 
-    .header-sub {
-      position: relative;
-      z-index: 1;
-      font-size: 13px;
-      font-weight: 700;
-      opacity: 0.95;
-    }
-
-    .header-date {
-      position: relative;
-      z-index: 1;
-      margin-top: 8px;
-      font-size: 12px;
-      font-weight: 700;
-      opacity: 0.9;
-    }
+    .header-sub { font-size: 13px; font-weight: 700; opacity: 0.95; }
+    .header-date { margin-top: 8px; font-size: 12px; font-weight: 700; opacity: 0.9; }
 
     .logo-section {
       text-align: center;
@@ -147,46 +123,9 @@
       box-shadow: 0 18px 42px rgba(0,0,0,0.32);
     }
 
-    main {
-      max-width: 1100px;
-      margin: 22px auto 0;
-      padding: 0 16px 28px;
-      width: 100%;
-    }
+    main { max-width: 1100px; margin: 22px auto 0; padding: 0 16px 28px; width: 100%; }
 
-    .intro-card {
-      background: rgba(255,255,255,0.94);
-      color: var(--mpc-charcoal);
-      border-radius: 22px;
-      padding: 24px 18px;
-      margin-bottom: 18px;
-      text-align: center;
-      border: 1px solid var(--mpc-border);
-      box-shadow: 0 16px 36px rgba(0,0,0,0.22);
-      backdrop-filter: blur(10px);
-    }
-
-    .intro-card h2 {
-      margin: 0 0 8px;
-      font-size: 24px;
-      font-weight: 900;
-      color: var(--mpc-charcoal);
-    }
-
-    .intro-card p {
-      margin: 0;
-      font-size: 14px;
-      color: var(--mpc-slate);
-      font-weight: 700;
-    }
-
-    .card-container {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 16px;
-    }
-
-    .card {
+    .panel, .card {
       position: relative;
       overflow: hidden;
       background: rgba(255,255,255,0.95);
@@ -195,11 +134,10 @@
       border-radius: 22px;
       border: 1px solid var(--mpc-border);
       box-shadow: 0 16px 36px rgba(0,0,0,0.22);
-      transition: 0.25s ease;
       backdrop-filter: blur(10px);
     }
 
-    .card::before {
+    .panel::before, .card::before {
       content: "";
       position: absolute;
       inset: 0 0 auto 0;
@@ -207,37 +145,35 @@
       background: linear-gradient(90deg, var(--mpc-cyan), #8f989d);
     }
 
-    .card:active {
-      transform: scale(0.98);
-    }
+    .hidden { display: none !important; }
+    .center { text-align: center; }
+    h2, h3 { color: var(--mpc-charcoal); margin-top: 0; }
+    p { color: var(--mpc-slate); font-weight: 600; line-height: 1.45; }
 
-    .card-icon {
-      width: 46px;
-      height: 46px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, var(--mpc-cyan), var(--mpc-cyan-dark));
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 22px;
-      margin-bottom: 12px;
-      box-shadow: 0 12px 24px rgba(18,184,212,0.28);
-    }
-
-    .card h2 {
-      margin: 0 0 8px;
-      font-size: 20px;
+    label {
+      display: block;
       color: var(--mpc-charcoal);
       font-weight: 900;
+      font-size: 13px;
+      margin: 14px 0 7px;
     }
 
-    .card p {
-      font-size: 14px;
-      color: var(--mpc-slate);
-      margin: 0 0 18px;
-      line-height: 1.45;
-      font-weight: 600;
+    select, input, textarea {
+      width: 100%;
+      border: 1px solid #d9e2e8;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 15px;
+      outline: none;
+      background: #fff;
+      color: var(--mpc-charcoal);
+    }
+
+    textarea { min-height: 96px; resize: vertical; }
+
+    select:focus, input:focus, textarea:focus {
+      border-color: var(--mpc-cyan);
+      box-shadow: 0 0 0 4px rgba(18,184,212,0.14);
     }
 
     .button {
@@ -255,55 +191,78 @@
       transition: 0.25s ease;
       font-size: 15px;
       box-shadow: 0 12px 22px rgba(18,184,212,0.25);
+      margin-top: 14px;
     }
 
-    .button:active {
-      transform: scale(0.96);
-    }
+    .button.secondary { background: #eef6f8; color: var(--mpc-charcoal); box-shadow: none; }
+    .button.danger { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .button:active { transform: scale(0.96); }
+    .button:disabled { opacity: .55; cursor: not-allowed; transform: none; }
 
-    .documents-section {
-      display: none;
-      margin-top: 18px;
-      background: rgba(255,255,255,0.95);
-      color: var(--mpc-charcoal);
-      border-radius: 22px;
-      padding: 22px;
-      border: 1px solid var(--mpc-border);
-      box-shadow: 0 16px 36px rgba(0,0,0,0.22);
-    }
+    .login-shell { max-width: 520px; margin: 0 auto; }
+    .small-note { font-size: 12px; color: var(--mpc-slate); font-weight: 700; margin-top: 10px; }
+    .error { background: #fee2e2; color: #991b1b; padding: 12px; border-radius: 14px; font-weight: 800; margin-top: 14px; }
+    .success { background: #dcfce7; color: #166534; padding: 12px; border-radius: 14px; font-weight: 800; margin-top: 14px; }
 
-    .documents-section h2 {
-      margin-top: 0;
-      text-align: center;
-      color: var(--mpc-charcoal);
-    }
-
-    .site-buttons {
+    .status-grid, .card-grid, .job-grid {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 10px;
-      margin-bottom: 18px;
+      gap: 14px;
+      margin-top: 16px;
     }
 
-    .site-button {
-      padding: 14px;
-      border-radius: 14px;
-      border: 2px solid var(--mpc-cyan);
-      background: #fff;
-      color: var(--mpc-charcoal);
+    .status-tile {
+      border-radius: 16px;
+      padding: 16px;
+      background: var(--mpc-light);
+      border: 1px solid #dce5ea;
       font-weight: 900;
-      cursor: pointer;
+      color: var(--mpc-charcoal);
     }
 
-    .site-button.active {
+    .status-tile span { display: block; color: var(--mpc-slate); font-size: 12px; margin-top: 4px; }
+    .locked { opacity: .58; filter: grayscale(.25); }
+
+    .card-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 16px;
       background: linear-gradient(135deg, var(--mpc-cyan), var(--mpc-cyan-dark));
       color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      margin-bottom: 12px;
+      box-shadow: 0 12px 24px rgba(18,184,212,0.28);
     }
 
-    .document-list {
+    .check-row {
       display: grid;
-      gap: 10px;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      padding: 14px;
+      border: 1px solid #dce5ea;
+      background: #f8fbfc;
+      border-radius: 16px;
+      margin-bottom: 10px;
     }
+
+    .check-title { font-weight: 900; color: var(--mpc-charcoal); }
+    .check-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .radio-pill input { display: none; }
+    .radio-pill span {
+      display: block;
+      padding: 12px;
+      border: 2px solid #d9e2e8;
+      border-radius: 12px;
+      text-align: center;
+      font-weight: 900;
+      cursor: pointer;
+      background: #fff;
+    }
+    .radio-pill input:checked + span.ok { border-color: var(--mpc-success); background: #dcfce7; color: #166534; }
+    .radio-pill input:checked + span.defect { border-color: var(--mpc-danger); background: #fee2e2; color: #991b1b; }
 
     .document-link {
       display: block;
@@ -315,41 +274,48 @@
       text-decoration: none;
       color: var(--mpc-charcoal);
       font-weight: 800;
+      margin-bottom: 10px;
     }
 
-    .empty-message {
-      text-align: center;
-      color: var(--mpc-slate);
-      font-weight: 800;
-      padding: 16px;
+    .job-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      border-bottom: 1px solid #e6eef2;
+      padding-bottom: 12px;
+      margin-bottom: 12px;
     }
 
-    footer {
-      text-align: center;
-      padding: 18px;
-      color: rgba(255,255,255,0.78);
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #e8f8fb;
+      color: var(--mpc-cyan-dark);
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 900;
     }
+
+    footer { text-align: center; padding: 18px; color: rgba(255,255,255,0.78); font-size: 12px; font-weight: 700; }
 
     @media (min-width: 700px) {
-      .card-container {
-        grid-template-columns: repeat(4, 1fr);
-      }
-
-      .site-buttons {
-        grid-template-columns: repeat(3, 1fr);
-      }
+      .status-grid { grid-template-columns: repeat(4, 1fr); }
+      .card-grid { grid-template-columns: repeat(3, 1fr); }
+      .job-grid { grid-template-columns: 1.1fr .9fr; }
+      .check-row { grid-template-columns: 1.2fr .8fr; align-items: center; }
     }
   </style>
 </head>
 
 <body>
-
   <div class="app-header">
-    <div class="header-badge">SITE PORTAL</div>
+    <div class="header-badge">Operative Portal</div>
     <h1>ManPowerConnections Portal</h1>
-    <div class="header-sub">Site Safety & Operations Hub</div>
+    <div class="header-sub">Sign In • Vehicle Checks • Job Packs • Evidence Uploads</div>
     <div class="header-date" id="headerDate"></div>
   </div>
 
@@ -358,153 +324,403 @@
   </div>
 
   <main>
-    <div class="intro-card">
-      <h2>Welcome</h2>
-      <p>Select the system you need below.</p>
-    </div>
+    <section id="loginView" class="login-shell panel">
+      <h2 class="center">Operative Login</h2>
+      <p class="center">Select your name and enter your PIN to access today’s work.</p>
 
-    <div class="card-container">
+      <label for="operativeSelect">Operative</label>
+      <select id="operativeSelect">
+        <option value="">Select your name...</option>
+      </select>
 
-      <div class="card">
-        <div class="card-icon">👷</div>
-        <h2>Sign In / Out Sheet</h2>
-        <p>Manage and record site attendance quickly and securely.</p>
-        <a class="button" href="https://plantchecksheet.github.io/SignInSignOut/">
-          Sign In/Sign Out
-        </a>
-      </div>
+      <label for="pinInput">PIN</label>
+      <input id="pinInput" type="password" inputmode="numeric" placeholder="Enter your PIN" />
 
-      <div class="card">
-        <div class="card-icon">✅</div>
-        <h2>Plant Check Sheet</h2>
-        <p>Complete daily plant and machinery inspections on site.</p>
-        <a class="button" href="https://plantchecksheet.github.io/PlantCheck/">
-          Plant Checks
-        </a>
-      </div>
-
-      <div class="card">
-        <div class="card-icon">📍</div>
-        <h2>Manager View</h2>
-        <p>Live view of workers currently on site and active attendance.</p>
-        <a class="button" href="https://plantchecksheet.github.io/SignInSignOut/manager-view.html">
-          Open Manager View
-        </a>
-      </div>
-
-     <div class="card">
-  <div class="card-icon">📄</div>
-  <h2>Document Portal</h2>
-  <p>View site-specific RAMS and documents for your current site.</p>
-  <a class="button" href="document-portal.html">
-    Open Documents
-  </a>
-</div>
-
-    
-
-      <div class="document-list" id="documentList">
-        <div class="empty-message">Select a site to view documents.</div>
-      </div>
+      <button class="button" onclick="loginOperative()">Login</button>
+      <div class="small-note">Demo PINs are included in the code. In the live version these should come from Google Sheets via Apps Script.</div>
+      <div id="loginMessage"></div>
     </section>
 
+    <section id="dashboardView" class="hidden">
+      <div class="panel">
+        <div class="job-header">
+          <div>
+            <h2 id="welcomeTitle">Welcome</h2>
+            <p id="jobSummary">Your assigned work will show here.</p>
+          </div>
+          <button class="button secondary" style="width:auto; min-width:130px; margin-top:0;" onclick="logoutOperative()">Logout</button>
+        </div>
+
+        <div class="status-grid">
+          <div class="status-tile" id="statusLogin">✅ Signed In <span id="signedInTime"></span></div>
+          <div class="status-tile" id="statusVan">⬜ Van Check <span>Required before job access</span></div>
+          <div class="status-tile locked" id="statusDocs">🔒 Job Pack <span>Locked</span></div>
+          <div class="status-tile locked" id="statusEvidence">🔒 Evidence <span>Locked</span></div>
+        </div>
+      </div>
+
+      <div id="vanCheckView" class="panel" style="margin-top:16px;">
+        <h2>Daily Van Check</h2>
+        <p>You must complete and submit your vehicle check before you can access job packs, RAMS or upload photo evidence.</p>
+
+        <label for="vehicleReg">Vehicle Registration</label>
+        <input id="vehicleReg" type="text" placeholder="Vehicle registration" />
+
+        <div id="vanChecks"></div>
+
+        <label for="vanCheckNotes">Notes / Defects</label>
+        <textarea id="vanCheckNotes" placeholder="Add notes here. If any item is marked Defect, notes are required."></textarea>
+
+        <button class="button" onclick="submitVanCheck()">Submit Van Check & Unlock Job Pack</button>
+        <div id="vanCheckMessage"></div>
+      </div>
+
+      <div id="jobAccessView" class="hidden" style="margin-top:16px;">
+        <div class="card-grid">
+          <div class="card">
+            <div class="card-icon">📄</div>
+            <h2>Today's Job Pack</h2>
+            <p>View the job pack assigned to you for today.</p>
+            <button class="button" onclick="showPanel('documentsPanel')">Open Job Pack</button>
+          </div>
+
+          <div class="card">
+            <div class="card-icon">📋</div>
+            <h2>RAMS / Documents</h2>
+            <p>Access RAMS, drawings, permits and site information.</p>
+            <button class="button" onclick="showPanel('documentsPanel')">Open Documents</button>
+          </div>
+
+          <div class="card">
+            <div class="card-icon">📸</div>
+            <h2>Photo Evidence</h2>
+            <p>Upload site photos directly against your assigned job.</p>
+            <button class="button" onclick="showPanel('evidencePanel')">Upload Evidence</button>
+          </div>
+        </div>
+
+        <div class="job-grid" style="margin-top:16px;">
+          <div id="documentsPanel" class="panel hidden">
+            <h2>Assigned Documents</h2>
+            <p id="documentsIntro">Only documents linked to your assigned job are shown.</p>
+            <div id="documentList"></div>
+          </div>
+
+          <div id="evidencePanel" class="panel hidden">
+            <h2>Upload Photo Evidence</h2>
+            <p>Photos selected here will be ready to send to the assigned Google Drive job folder in the live setup.</p>
+
+            <label for="evidencePhotos">Photos</label>
+            <input id="evidencePhotos" type="file" accept="image/*" capture="environment" multiple />
+
+            <label for="evidenceNotes">Completion Notes</label>
+            <textarea id="evidenceNotes" placeholder="Example: Connection completed, reinstatement finished, chamber photos uploaded..."></textarea>
+
+            <button class="button" onclick="submitEvidence()">Submit Evidence</button>
+            <div id="evidenceMessage"></div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
-  <footer>
-    © 2026 ManPowerConnections
-  </footer>
+  <footer>© 2026 ManPowerConnections</footer>
 
   <script>
+    /**********************************************************************
+      LIVE GOOGLE APPS SCRIPT SETUP
+      -------------------------------------------------------------------
+      When ready, replace DEMO_MODE with false and add your Apps Script URL.
+
+      const DEMO_MODE = false;
+      const WEB_APP_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec";
+
+      Suggested Apps Script actions:
+      - getOperatives
+      - loginOperative
+      - checkVanStatus
+      - submitVanCheck
+      - getAssignedJobs
+      - uploadEvidence
+
+      Suggested Google Sheets tabs:
+      Operatives: Name | PIN | Active | VehicleReg
+      Jobs: Date | Operative | Site | JobName | FolderId | Status
+      Documents: JobId | FileName | FileUrl | Type
+      VanChecks: Timestamp | Operative | VehicleReg | Results | Notes
+      EvidenceUploads: Timestamp | Operative | JobId | Notes | FileUrls
+    **********************************************************************/
+
+    const DEMO_MODE = true;
+    const WEB_APP_URL = "";
+
     const headerDate = document.getElementById("headerDate");
     const today = new Date();
     const options = { day: "numeric", month: "short", year: "numeric" };
     headerDate.textContent = today.toLocaleDateString("en-GB", options);
 
-    /*
-      Replace the example links below with your real Google Drive document links.
+    const vanCheckItems = [
+      "Oil level checked",
+      "Coolant level checked",
+      "Lights and indicators working",
+      "Tyres checked and roadworthy",
+      "Mirrors and windows clean/damage free",
+      "Horn working",
+      "Wipers and washers working",
+      "No visible leaks",
+      "Van secure and fit for work"
+    ];
 
-      Recommended Drive setup:
-      - Create a folder called RAMS
-      - Inside it create folders:
-        - Work
-        - Tesco
-        - Home
-      - Upload the correct documents into each folder
-      - Right-click each document > Share > Copy link
-      - Paste the link below
-    */
-
-    const documentsBySite = {
-      work: [
-        {
-          name: "Work - Risk Assessment",
-          url: "https://drive.google.com/your-work-risk-assessment-link"
-        },
-        {
-          name: "Work - Method Statement",
-          url: "https://drive.google.com/your-work-method-statement-link"
+    const demoOperatives = [
+      {
+        id: "op001",
+        name: "Stephen Smith",
+        pin: "1234",
+        vehicleReg: "VX22 ABC",
+        job: {
+          id: "job001",
+          site: "Birmingham",
+          jobName: "Birmingham Connection Works",
+          folderId: "PASTE_GOOGLE_DRIVE_FOLDER_ID_HERE",
+          documents: [
+            { name: "Birmingham - Job Pack", url: "https://drive.google.com/your-birmingham-job-pack-link" },
+            { name: "Birmingham - RAMS", url: "https://drive.google.com/your-birmingham-rams-link" },
+            { name: "Birmingham - Utility Drawings", url: "https://drive.google.com/your-birmingham-drawings-link" }
+          ]
         }
-      ],
-
-      tesco: [
-        {
-          name: "Tesco - Risk Assessment",
-          url: "https://drive.google.com/your-tesco-risk-assessment-link"
-        },
-        {
-          name: "Tesco - Method Statement",
-          url: "https://drive.google.com/your-tesco-method-statement-link"
+      },
+      {
+        id: "op002",
+        name: "John Jones",
+        pin: "5678",
+        vehicleReg: "AB12 CDE",
+        job: {
+          id: "job002",
+          site: "Coventry",
+          jobName: "Coventry Site Investigation",
+          folderId: "PASTE_GOOGLE_DRIVE_FOLDER_ID_HERE",
+          documents: [
+            { name: "Coventry - Job Pack", url: "https://drive.google.com/your-coventry-job-pack-link" },
+            { name: "Coventry - RAMS", url: "https://drive.google.com/your-coventry-rams-link" }
+          ]
         }
-      ],
-
-      home: [
-        {
-          name: "Home - Risk Assessment",
-          url: "https://drive.google.com/your-home-risk-assessment-link"
-        },
-        {
-          name: "Home - Method Statement",
-          url: "https://drive.google.com/your-home-method-statement-link"
+      },
+      {
+        id: "op003",
+        name: "Shaun Maley",
+        pin: "9999",
+        vehicleReg: "SM10 PCX",
+        job: {
+          id: "job003",
+          site: "Walsall",
+          jobName: "Walsall Trial Job Pack",
+          folderId: "PASTE_GOOGLE_DRIVE_FOLDER_ID_HERE",
+          documents: [
+            { name: "Walsall - Trial Job Pack", url: "https://drive.google.com/your-walsall-job-pack-link" },
+            { name: "Walsall - RAMS", url: "https://drive.google.com/your-walsall-rams-link" },
+            { name: "Walsall - Permit", url: "https://drive.google.com/your-walsall-permit-link" }
+          ]
         }
-      ]
-    };
-
-    function toggleDocuments() {
-      const section = document.getElementById("documentsSection");
-
-      if (section.style.display === "block") {
-        section.style.display = "none";
-      } else {
-        section.style.display = "block";
-        section.scrollIntoView({ behavior: "smooth" });
       }
+    ];
+
+    let currentOperative = null;
+    let vanCheckComplete = false;
+
+    function populateOperatives() {
+      const select = document.getElementById("operativeSelect");
+      demoOperatives.forEach(op => {
+        const option = document.createElement("option");
+        option.value = op.id;
+        option.textContent = op.name;
+        select.appendChild(option);
+      });
     }
 
-    function showDocuments(site, button) {
-      const documentList = document.getElementById("documentList");
-      const siteButtons = document.querySelectorAll(".site-button");
-
-      siteButtons.forEach(btn => btn.classList.remove("active"));
-      button.classList.add("active");
-
-      const documents = documentsBySite[site] || [];
-
-      if (documents.length === 0) {
-        documentList.innerHTML = `
-          <div class="empty-message">
-            No documents uploaded for this site yet.
+    function renderVanChecks() {
+      const container = document.getElementById("vanChecks");
+      container.innerHTML = vanCheckItems.map((item, index) => `
+        <div class="check-row">
+          <div class="check-title">${index + 1}. ${item}</div>
+          <div class="check-options">
+            <label class="radio-pill">
+              <input type="radio" name="check_${index}" value="OK">
+              <span class="ok">OK</span>
+            </label>
+            <label class="radio-pill">
+              <input type="radio" name="check_${index}" value="Defect">
+              <span class="defect">Defect</span>
+            </label>
           </div>
-        `;
+        </div>
+      `).join("");
+    }
+
+    function loginOperative() {
+      const selectedId = document.getElementById("operativeSelect").value;
+      const enteredPin = document.getElementById("pinInput").value.trim();
+      const message = document.getElementById("loginMessage");
+      message.innerHTML = "";
+
+      const operative = demoOperatives.find(op => op.id === selectedId);
+
+      if (!operative) {
+        message.innerHTML = `<div class="error">Please select your name.</div>`;
         return;
       }
 
-      documentList.innerHTML = documents.map(doc => `
-        <a class="document-link" href="${doc.url}" target="_blank" rel="noopener">
-          📄 ${doc.name}
-        </a>
+      if (operative.pin !== enteredPin) {
+        message.innerHTML = `<div class="error">Incorrect PIN. Please try again.</div>`;
+        return;
+      }
+
+      currentOperative = operative;
+      vanCheckComplete = false;
+
+      document.getElementById("loginView").classList.add("hidden");
+      document.getElementById("dashboardView").classList.remove("hidden");
+      document.getElementById("welcomeTitle").textContent = `Welcome ${operative.name}`;
+      document.getElementById("jobSummary").textContent = `Today you are assigned to ${operative.job.jobName} in ${operative.job.site}.`;
+      document.getElementById("vehicleReg").value = operative.vehicleReg || "";
+      document.getElementById("signedInTime").textContent = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+      lockJobAccess();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function lockJobAccess() {
+      document.getElementById("vanCheckView").classList.remove("hidden");
+      document.getElementById("jobAccessView").classList.add("hidden");
+      document.getElementById("statusVan").innerHTML = `⬜ Van Check <span>Required before job access</span>`;
+      document.getElementById("statusDocs").classList.add("locked");
+      document.getElementById("statusEvidence").classList.add("locked");
+      document.getElementById("statusDocs").innerHTML = `🔒 Job Pack <span>Locked</span>`;
+      document.getElementById("statusEvidence").innerHTML = `🔒 Evidence <span>Locked</span>`;
+    }
+
+    function unlockJobAccess() {
+      vanCheckComplete = true;
+      document.getElementById("vanCheckView").classList.add("hidden");
+      document.getElementById("jobAccessView").classList.remove("hidden");
+      document.getElementById("statusVan").innerHTML = `✅ Van Check <span>Complete today</span>`;
+      document.getElementById("statusDocs").classList.remove("locked");
+      document.getElementById("statusEvidence").classList.remove("locked");
+      document.getElementById("statusDocs").innerHTML = `✅ Job Pack <span>Unlocked</span>`;
+      document.getElementById("statusEvidence").innerHTML = `✅ Evidence <span>Unlocked</span>`;
+      renderDocuments();
+      showPanel("documentsPanel");
+    }
+
+    function submitVanCheck() {
+      const message = document.getElementById("vanCheckMessage");
+      message.innerHTML = "";
+
+      const vehicleReg = document.getElementById("vehicleReg").value.trim();
+      const notes = document.getElementById("vanCheckNotes").value.trim();
+      const results = [];
+      let hasDefect = false;
+
+      if (!vehicleReg) {
+        message.innerHTML = `<div class="error">Please enter the vehicle registration.</div>`;
+        return;
+      }
+
+      for (let i = 0; i < vanCheckItems.length; i++) {
+        const selected = document.querySelector(`input[name="check_${i}"]:checked`);
+        if (!selected) {
+          message.innerHTML = `<div class="error">Please complete all van check items.</div>`;
+          return;
+        }
+        if (selected.value === "Defect") hasDefect = true;
+        results.push({ item: vanCheckItems[i], result: selected.value });
+      }
+
+      if (hasDefect && !notes) {
+        message.innerHTML = `<div class="error">You have marked a defect. Please add notes before submitting.</div>`;
+        return;
+      }
+
+      const payload = {
+        action: "submitVanCheck",
+        operative: currentOperative.name,
+        operativeId: currentOperative.id,
+        vehicleReg,
+        notes,
+        results,
+        timestamp: new Date().toISOString()
+      };
+
+      console.log("Van check payload ready for Apps Script:", payload);
+      message.innerHTML = `<div class="success">Van check submitted. Job access unlocked.</div>`;
+
+      setTimeout(unlockJobAccess, 600);
+    }
+
+    function renderDocuments() {
+      const list = document.getElementById("documentList");
+      const intro = document.getElementById("documentsIntro");
+      const job = currentOperative.job;
+      intro.textContent = `${currentOperative.name} • ${job.jobName} • ${job.site}`;
+
+      if (!job.documents || job.documents.length === 0) {
+        list.innerHTML = `<div class="error">No documents are currently assigned to this job.</div>`;
+        return;
+      }
+
+      list.innerHTML = job.documents.map(doc => `
+        <a class="document-link" href="${doc.url}" target="_blank" rel="noopener">📄 ${doc.name}</a>
       `).join("");
     }
-  </script>
 
+    function showPanel(panelId) {
+      if (!vanCheckComplete) return;
+      document.getElementById("documentsPanel").classList.add("hidden");
+      document.getElementById("evidencePanel").classList.add("hidden");
+      document.getElementById(panelId).classList.remove("hidden");
+      document.getElementById(panelId).scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function submitEvidence() {
+      const files = document.getElementById("evidencePhotos").files;
+      const notes = document.getElementById("evidenceNotes").value.trim();
+      const message = document.getElementById("evidenceMessage");
+
+      if (!files.length && !notes) {
+        message.innerHTML = `<div class="error">Please add at least one photo or completion note.</div>`;
+        return;
+      }
+
+      const payload = {
+        action: "uploadEvidence",
+        operative: currentOperative.name,
+        operativeId: currentOperative.id,
+        jobId: currentOperative.job.id,
+        site: currentOperative.job.site,
+        folderId: currentOperative.job.folderId,
+        notes,
+        fileCount: files.length,
+        timestamp: new Date().toISOString()
+      };
+
+      console.log("Evidence payload ready for Apps Script:", payload);
+      message.innerHTML = `<div class="success">Evidence captured for ${currentOperative.job.site}. In the live version this will upload into the assigned Google Drive folder.</div>`;
+    }
+
+    function logoutOperative() {
+      currentOperative = null;
+      vanCheckComplete = false;
+      document.getElementById("pinInput").value = "";
+      document.getElementById("vanCheckNotes").value = "";
+      document.getElementById("evidenceNotes").value = "";
+      document.getElementById("evidencePhotos").value = "";
+      document.getElementById("dashboardView").classList.add("hidden");
+      document.getElementById("loginView").classList.remove("hidden");
+      renderVanChecks();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    populateOperatives();
+    renderVanChecks();
+  </script>
 </body>
 </html>
