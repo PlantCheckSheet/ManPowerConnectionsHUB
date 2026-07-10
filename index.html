@@ -353,7 +353,6 @@
       <input id="pinInput" type="password" inputmode="numeric" placeholder="Enter your PIN" />
 
       <button class="button" onclick="loginOperative()">Login</button>
-      <div class="small-note">Demo PINs are included in the code. In the live version these should come from Google Sheets via Apps Script.</div>
       <div id="loginMessage"></div>
     </section>
 
@@ -392,39 +391,30 @@
       </div>
 
       <div id="jobAccessView" class="hidden" style="margin-top:16px;">
-        <div class="card-grid">
-          <div class="card">
-            <div class="card-icon">📄</div>
-            <h2>Today's Job Pack</h2>
-            <p>View the job pack assigned to you for today.</p>
-            <button class="button" onclick="showPanel('documentsPanel')">Open Job Pack</button>
+        <div class="panel">
+          <div class="job-header">
+            <div>
+              <h2 style="margin-bottom:4px;">Today&apos;s Jobs</h2>
+              <p style="margin:0;">Select a job to view its documents or upload photo evidence.</p>
+            </div>
+            <span class="pill" id="jobCountPill">0 Jobs</span>
           </div>
 
-          <div class="card">
-            <div class="card-icon">📋</div>
-            <h2>RAMS / Documents</h2>
-            <p>Access RAMS, drawings, permits and site information.</p>
-            <button class="button" onclick="showPanel('documentsPanel')">Open Documents</button>
-          </div>
-
-          <div class="card">
-            <div class="card-icon">📸</div>
-            <h2>Photo Evidence</h2>
-            <p>Upload site photos directly against your assigned job.</p>
-            <button class="button" onclick="showPanel('evidencePanel')">Upload Evidence</button>
-          </div>
+          <div id="jobsList" class="card-grid"></div>
         </div>
 
         <div class="job-grid" style="margin-top:16px;">
           <div id="documentsPanel" class="panel hidden">
             <h2>Assigned Documents</h2>
-            <p id="documentsIntro">Only documents linked to your assigned job are shown.</p>
+            <div id="documentsSelectedJob" class="pill" style="margin-bottom:14px;"></div>
+            <p id="documentsIntro">Only documents linked to the selected job are shown.</p>
             <div id="documentList"></div>
           </div>
 
           <div id="evidencePanel" class="panel hidden">
             <h2>Upload Photo Evidence</h2>
-            <p>Photos selected here will be ready to send to the assigned Google Drive job folder in the live setup.</p>
+            <div id="evidenceSelectedJob" class="pill" style="margin-bottom:14px;"></div>
+            <p>Photos will upload to the Google Drive folder linked to the selected job.</p>
 
             <label for="evidencePhotos">Photos</label>
             <input id="evidencePhotos" type="file" accept="image/*" capture="environment" multiple />
@@ -432,7 +422,7 @@
             <label for="evidenceNotes">Completion Notes</label>
             <textarea id="evidenceNotes" placeholder="Example: Connection completed, reinstatement finished, chamber photos uploaded..."></textarea>
 
-            <button class="button" onclick="submitEvidence()">Submit Evidence</button>
+            <button id="evidenceSubmitButton" class="button" onclick="submitEvidence()">Submit Evidence</button>
             <div id="evidenceMessage"></div>
           </div>
         </div>
@@ -443,18 +433,6 @@
   <footer>© 2026 ManPowerConnections</footer>
 
   <script>
-    /**********************************************************************
-      LIVE GOOGLE APPS SCRIPT SETUP
-      -------------------------------------------------------------------
-      This version is connected to your Google Apps Script Web App URL.
-
-      Google Sheets tabs expected by the Apps Script:
-      Operatives: Name | PIN | Vehicle | Active
-      Jobs: Date | Operative | Site | Job Name | Folder ID | Status
-      Van Checks: Date | Timestamp | Operative | Vehicle | Mileage | Notes | Result
-      Photo Uploads: Date | Timestamp | Operative | Site | Job Name | File Name | File URL | Notes
-    **********************************************************************/
-
     const DEMO_MODE = false;
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx1WjCF-C-qliIWdeXL_btSRDH6gCejZUt0PdG4ggEuzrW3vnedxD23mJq5svWlrgUZ/exec";
 
@@ -476,6 +454,7 @@
     ];
 
     let currentOperative = null;
+    let selectedJob = null;
     let vanCheckComplete = false;
 
     async function apiPost(payload) {
@@ -491,7 +470,22 @@
         throw new Error("Apps Script connection failed");
       }
 
-      return await response.json();
+      const data = await response.json();
+
+      if (data && data.success === false) {
+        throw new Error(data.message || "The request could not be completed.");
+      }
+
+      return data;
+    }
+
+    function safeText(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
     }
 
     async function populateOperatives() {
@@ -501,24 +495,23 @@
       try {
         const data = await apiPost({ action: "getOperatives" });
 
-        if (!data.success) {
-          select.innerHTML = `<option value="">Could not load operatives</option>`;
-          document.getElementById("loginMessage").innerHTML = `<div class="error">${data.message || "Could not load operatives from Google Sheets."}</div>`;
-          return;
-        }
-
         select.innerHTML = `<option value="">Select your name...</option>`;
 
-        data.operatives.forEach(name => {
+        (data.operatives || []).forEach(name => {
           const option = document.createElement("option");
           option.value = name;
           option.textContent = name;
           select.appendChild(option);
         });
 
+        if (!data.operatives || data.operatives.length === 0) {
+          select.innerHTML = `<option value="">No active operatives found</option>`;
+        }
+
       } catch (error) {
         select.innerHTML = `<option value="">Could not load operatives</option>`;
-        document.getElementById("loginMessage").innerHTML = `<div class="error">Could not connect to Google Sheets. Check your Apps Script deployment and Web App URL.</div>`;
+        document.getElementById("loginMessage").innerHTML =
+          `<div class="error">${safeText(error.message)}</div>`;
         console.error(error);
       }
     }
@@ -527,7 +520,7 @@
       const container = document.getElementById("vanChecks");
       container.innerHTML = vanCheckItems.map((item, index) => `
         <div class="check-row">
-          <div class="check-title">${index + 1}. ${item}</div>
+          <div class="check-title">${index + 1}. ${safeText(item)}</div>
           <div class="check-options">
             <label class="radio-pill">
               <input type="radio" name="check_${index}" value="OK">
@@ -546,6 +539,8 @@
       const selectedName = document.getElementById("operativeSelect").value;
       const enteredPin = document.getElementById("pinInput").value.trim();
       const message = document.getElementById("loginMessage");
+      const loginButton = document.querySelector("#loginView .button");
+
       message.innerHTML = "";
 
       if (!selectedName) {
@@ -558,6 +553,9 @@
         return;
       }
 
+      loginButton.disabled = true;
+      loginButton.textContent = "Signing in...";
+
       try {
         const loginData = await apiPost({
           action: "login",
@@ -565,42 +563,43 @@
           pin: enteredPin
         });
 
-        if (!loginData.success) {
-          message.innerHTML = `<div class="error">${loginData.message || "Incorrect name or PIN."}</div>`;
-          return;
-        }
-
         const dashboardData = await apiPost({
           action: "getDashboard",
           name: loginData.name
         });
 
-        if (!dashboardData.success) {
-          message.innerHTML = `<div class="error">${dashboardData.message || "Could not load dashboard."}</div>`;
-          return;
-        }
-
         currentOperative = {
           name: loginData.name,
           vehicleReg: loginData.vehicle || "",
-          job: dashboardData.job || null,
-          documents: dashboardData.documents || []
+          jobs: dashboardData.jobs || []
         };
 
+        selectedJob = null;
         vanCheckComplete = dashboardData.vanCheckComplete === true;
 
         document.getElementById("loginView").classList.add("hidden");
         document.getElementById("dashboardView").classList.remove("hidden");
         document.getElementById("welcomeTitle").textContent = `Welcome ${currentOperative.name}`;
 
-        if (currentOperative.job) {
-          document.getElementById("jobSummary").textContent = `Today you are assigned to ${currentOperative.job.jobName} in ${currentOperative.job.site}.`;
+        const jobCount = currentOperative.jobs.length;
+
+        if (jobCount === 1) {
+          document.getElementById("jobSummary").textContent =
+            "You have 1 active job assigned today.";
+        } else if (jobCount > 1) {
+          document.getElementById("jobSummary").textContent =
+            `You have ${jobCount} active jobs assigned today.`;
         } else {
-          document.getElementById("jobSummary").textContent = `No active job has been assigned to you today.`;
+          document.getElementById("jobSummary").textContent =
+            "No active jobs have been assigned to you today.";
         }
 
-        document.getElementById("vehicleReg").value = currentOperative.vehicleReg || "";
-        document.getElementById("signedInTime").textContent = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+        document.getElementById("vehicleReg").value = currentOperative.vehicleReg;
+        document.getElementById("signedInTime").textContent =
+          new Date().toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit"
+          });
 
         if (vanCheckComplete) {
           unlockJobAccess();
@@ -611,36 +610,145 @@
         window.scrollTo({ top: 0, behavior: "smooth" });
 
       } catch (error) {
-        message.innerHTML = `<div class="error">Could not connect to Google Sheets. Check your Apps Script URL and deployment settings.</div>`;
+        message.innerHTML = `<div class="error">${safeText(error.message)}</div>`;
         console.error(error);
+      } finally {
+        loginButton.disabled = false;
+        loginButton.textContent = "Login";
       }
     }
 
     function lockJobAccess() {
       document.getElementById("vanCheckView").classList.remove("hidden");
       document.getElementById("jobAccessView").classList.add("hidden");
-      document.getElementById("statusVan").innerHTML = `⬜ Van Check <span>Required before job access</span>`;
+      document.getElementById("statusVan").innerHTML =
+        `⬜ Van Check <span>Required before job access</span>`;
       document.getElementById("statusDocs").classList.add("locked");
       document.getElementById("statusEvidence").classList.add("locked");
-      document.getElementById("statusDocs").innerHTML = `🔒 Job Pack <span>Locked</span>`;
-      document.getElementById("statusEvidence").innerHTML = `🔒 Evidence <span>Locked</span>`;
+      document.getElementById("statusDocs").innerHTML =
+        `🔒 Job Pack <span>Locked</span>`;
+      document.getElementById("statusEvidence").innerHTML =
+        `🔒 Evidence <span>Locked</span>`;
     }
 
     function unlockJobAccess() {
       vanCheckComplete = true;
+
       document.getElementById("vanCheckView").classList.add("hidden");
       document.getElementById("jobAccessView").classList.remove("hidden");
-      document.getElementById("statusVan").innerHTML = `✅ Van Check <span>Complete today</span>`;
+      document.getElementById("statusVan").innerHTML =
+        `✅ Van Check <span>Complete today</span>`;
       document.getElementById("statusDocs").classList.remove("locked");
       document.getElementById("statusEvidence").classList.remove("locked");
-      document.getElementById("statusDocs").innerHTML = `✅ Job Pack <span>Unlocked</span>`;
-      document.getElementById("statusEvidence").innerHTML = `✅ Evidence <span>Unlocked</span>`;
+      document.getElementById("statusDocs").innerHTML =
+        `✅ Job Pack <span>Unlocked</span>`;
+      document.getElementById("statusEvidence").innerHTML =
+        `✅ Evidence <span>Unlocked</span>`;
+
+      renderJobs();
+    }
+
+    function renderJobs() {
+      const jobs = currentOperative.jobs || [];
+      const list = document.getElementById("jobsList");
+      const pill = document.getElementById("jobCountPill");
+
+      pill.textContent = `${jobs.length} Job${jobs.length === 1 ? "" : "s"}`;
+
+      document.getElementById("documentsPanel").classList.add("hidden");
+      document.getElementById("evidencePanel").classList.add("hidden");
+
+      if (jobs.length === 0) {
+        list.innerHTML = `
+          <div class="card">
+            <div class="card-icon">📍</div>
+            <h3>No Jobs Assigned</h3>
+            <p>No active jobs were found for you today.</p>
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = jobs.map((job, index) => `
+        <div class="card">
+          <div class="card-icon">📍</div>
+          <span class="pill">${safeText(job.site || "Site not entered")}</span>
+          <h3 style="margin-top:12px;">${safeText(job.jobName || "Unnamed Job")}</h3>
+          <p>${safeText(job.date || "")}</p>
+          <button class="button" onclick="openJobDocuments(${index})">Open Job Pack</button>
+          <button class="button secondary" onclick="openJobEvidence(${index})">Upload Evidence</button>
+        </div>
+      `).join("");
+    }
+
+    function openJobDocuments(index) {
+      selectedJob = currentOperative.jobs[index];
+
+      document.getElementById("evidencePanel").classList.add("hidden");
+      document.getElementById("documentsPanel").classList.remove("hidden");
+
+      document.getElementById("documentsSelectedJob").textContent =
+        `${selectedJob.jobName || "Unnamed Job"} • ${selectedJob.site || "Site not entered"}`;
+
       renderDocuments();
-      showPanel("documentsPanel");
+
+      document.getElementById("documentsPanel").scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }
+
+    function openJobEvidence(index) {
+      selectedJob = currentOperative.jobs[index];
+
+      document.getElementById("documentsPanel").classList.add("hidden");
+      document.getElementById("evidencePanel").classList.remove("hidden");
+
+      document.getElementById("evidenceSelectedJob").textContent =
+        `${selectedJob.jobName || "Unnamed Job"} • ${selectedJob.site || "Site not entered"}`;
+
+      document.getElementById("evidenceMessage").innerHTML = "";
+
+      document.getElementById("evidencePanel").scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }
+
+    function renderDocuments() {
+      const list = document.getElementById("documentList");
+      const intro = document.getElementById("documentsIntro");
+
+      if (!selectedJob) {
+        intro.textContent = "Select a job to view its documents.";
+        list.innerHTML = "";
+        return;
+      }
+
+      intro.textContent =
+        `${currentOperative.name} • ${selectedJob.jobName} • ${selectedJob.site}`;
+
+      const documents = selectedJob.documents || [];
+
+      if (documents.length === 0) {
+        list.innerHTML =
+          `<div class="error">No documents are currently assigned to this job folder.</div>`;
+        return;
+      }
+
+      list.innerHTML = documents.map(doc => `
+        <a class="document-link"
+           href="${safeText(doc.url)}"
+           target="_blank"
+           rel="noopener">
+          📄 ${safeText(doc.name)}
+        </a>
+      `).join("");
     }
 
     async function submitVanCheck() {
       const message = document.getElementById("vanCheckMessage");
+      const submitButton = document.querySelector("#vanCheckView .button");
       message.innerHTML = "";
 
       const vehicleReg = document.getElementById("vehicleReg").value.trim();
@@ -649,148 +757,164 @@
       let hasDefect = false;
 
       if (!vehicleReg) {
-        message.innerHTML = `<div class="error">Please enter the vehicle registration.</div>`;
+        message.innerHTML =
+          `<div class="error">Please enter the vehicle registration.</div>`;
         return;
       }
 
       for (let i = 0; i < vanCheckItems.length; i++) {
-        const selected = document.querySelector(`input[name="check_${i}"]:checked`);
+        const selected = document.querySelector(
+          `input[name="check_${i}"]:checked`
+        );
+
         if (!selected) {
-          message.innerHTML = `<div class="error">Please complete all van check items.</div>`;
+          message.innerHTML =
+            `<div class="error">Please complete all van check items.</div>`;
           return;
         }
 
-        if (selected.value === "Defect") hasDefect = true;
-        results.push({ item: vanCheckItems[i], result: selected.value });
+        if (selected.value === "Defect") {
+          hasDefect = true;
+        }
+
+        results.push({
+          item: vanCheckItems[i],
+          result: selected.value
+        });
       }
 
       if (hasDefect && !notes) {
-        message.innerHTML = `<div class="error">You have marked a defect. Please add notes before submitting.</div>`;
+        message.innerHTML =
+          `<div class="error">You have marked a defect. Please add notes before submitting.</div>`;
         return;
       }
 
+      submitButton.disabled = true;
+      submitButton.textContent = "Submitting van check...";
+
       try {
-        const data = await apiPost({
+        await apiPost({
           action: "submitVanCheck",
           name: currentOperative.name,
           vehicle: vehicleReg,
           mileage: "",
-          notes: JSON.stringify({ notes, checks: results }),
+          notes: JSON.stringify({
+            notes: notes,
+            checks: results
+          }),
           result: hasDefect ? "Defect Reported" : "All OK"
         });
 
-        if (!data.success) {
-          message.innerHTML = `<div class="error">${data.message || "Van check could not be submitted."}</div>`;
-          return;
-        }
+        vanCheckComplete = true;
+        message.innerHTML =
+          `<div class="success">Van check submitted. Job access unlocked.</div>`;
 
-        message.innerHTML = `<div class="success">Van check submitted. Job access unlocked.</div>`;
-        setTimeout(unlockJobAccess, 600);
+        setTimeout(unlockJobAccess, 500);
 
       } catch (error) {
-        message.innerHTML = `<div class="error">Could not submit van check. Check your Apps Script deployment.</div>`;
+        message.innerHTML =
+          `<div class="error">${safeText(error.message)}</div>`;
         console.error(error);
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent =
+          "Submit Van Check & Unlock Job Pack";
       }
-    }
-
-    function renderDocuments() {
-      const list = document.getElementById("documentList");
-      const intro = document.getElementById("documentsIntro");
-
-      if (!currentOperative.job) {
-        intro.textContent = `${currentOperative.name}`;
-        list.innerHTML = `<div class="error">No active job has been assigned to you today.</div>`;
-        return;
-      }
-
-      intro.textContent = `${currentOperative.name} • ${currentOperative.job.jobName} • ${currentOperative.job.site}`;
-
-      if (!currentOperative.documents || currentOperative.documents.length === 0) {
-        list.innerHTML = `<div class="error">No documents are currently assigned to this job folder.</div>`;
-        return;
-      }
-
-      list.innerHTML = currentOperative.documents.map(doc => `
-        <a class="document-link" href="${doc.url}" target="_blank" rel="noopener">📄 ${doc.name}</a>
-      `).join("");
-    }
-
-    function showPanel(panelId) {
-      if (!vanCheckComplete) return;
-      document.getElementById("documentsPanel").classList.add("hidden");
-      document.getElementById("evidencePanel").classList.add("hidden");
-      document.getElementById(panelId).classList.remove("hidden");
-      document.getElementById(panelId).scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     async function fileToBase64(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
+        reader.onerror = () =>
+          reject(new Error(`Could not read ${file.name}`));
         reader.readAsDataURL(file);
       });
     }
 
     async function submitEvidence() {
-      const files = document.getElementById("evidencePhotos").files;
+      const files = Array.from(
+        document.getElementById("evidencePhotos").files || []
+      );
+
       const notes = document.getElementById("evidenceNotes").value.trim();
       const message = document.getElementById("evidenceMessage");
+      const submitButton = document.getElementById("evidenceSubmitButton");
 
       message.innerHTML = "";
 
-      if (!currentOperative.job) {
-        message.innerHTML = `<div class="error">No active job folder has been assigned.</div>`;
+      if (!selectedJob) {
+        message.innerHTML =
+          `<div class="error">Please select a job before uploading evidence.</div>`;
         return;
       }
 
-      if (!files.length && !notes) {
-        message.innerHTML = `<div class="error">Please add at least one photo or completion note.</div>`;
+      if (!selectedJob.folderId) {
+        message.innerHTML =
+          `<div class="error">This job does not have a Google Drive Folder ID.</div>`;
         return;
       }
 
-      if (!files.length) {
-        message.innerHTML = `<div class="error">Please add at least one photo to upload.</div>`;
+      if (files.length === 0) {
+        message.innerHTML =
+          `<div class="error">Please add at least one photo to upload.</div>`;
         return;
       }
+
+      submitButton.disabled = true;
 
       try {
-        message.innerHTML = `<div class="success">Uploading ${files.length} photo(s), please wait...</div>`;
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
 
-        for (const file of files) {
+          submitButton.textContent =
+            `Uploading ${i + 1} of ${files.length}...`;
+
           const fileData = await fileToBase64(file);
 
           await apiPost({
             action: "uploadPhoto",
             name: currentOperative.name,
-            site: currentOperative.job.site,
-            jobName: currentOperative.job.jobName,
-            folderId: currentOperative.job.folderId,
-            notes,
+            site: selectedJob.site,
+            jobName: selectedJob.jobName,
+            folderId: selectedJob.folderId,
+            notes: notes,
             fileName: file.name,
-            fileData
+            fileData: fileData
           });
         }
 
-        message.innerHTML = `<div class="success">Evidence uploaded to the assigned Google Drive job folder.</div>`;
+        message.innerHTML =
+          `<div class="success">${files.length} photo${files.length === 1 ? "" : "s"} uploaded to the selected job folder.</div>`;
+
         document.getElementById("evidencePhotos").value = "";
         document.getElementById("evidenceNotes").value = "";
 
       } catch (error) {
-        message.innerHTML = `<div class="error">Could not upload evidence. Check the job Folder ID and Apps Script permissions.</div>`;
+        message.innerHTML =
+          `<div class="error">${safeText(error.message)}</div>`;
         console.error(error);
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "Submit Evidence";
       }
     }
 
     function logoutOperative() {
       currentOperative = null;
+      selectedJob = null;
       vanCheckComplete = false;
+
       document.getElementById("pinInput").value = "";
       document.getElementById("vanCheckNotes").value = "";
       document.getElementById("evidenceNotes").value = "";
       document.getElementById("evidencePhotos").value = "";
       document.getElementById("dashboardView").classList.add("hidden");
       document.getElementById("loginView").classList.remove("hidden");
+      document.getElementById("documentsPanel").classList.add("hidden");
+      document.getElementById("evidencePanel").classList.add("hidden");
+      document.getElementById("loginMessage").innerHTML = "";
+
       renderVanChecks();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
