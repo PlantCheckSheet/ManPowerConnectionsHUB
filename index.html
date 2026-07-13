@@ -373,7 +373,7 @@
         <div class="job-header">
           <div>
             <h2 id="welcomeTitle">Welcome</h2>
-            <p id="jobSummary">Your assigned work will show here.</p>
+            <p id="jobSummary">Today’s work is loaded automatically from your Google Drive folder.</p>
           </div>
           <button class="button secondary" style="width:auto; min-width:130px; margin-top:0;" onclick="logoutOperative()">Logout</button>
         </div>
@@ -404,7 +404,7 @@
 
       <div id="jobAccessView" class="hidden" style="margin-top:16px;">
         <div class="panel">
-          <div class="job-header"><div><h2 style="margin-bottom:4px;">Today&apos;s Jobs</h2><p style="margin:0;">Select a job to open its daily paperwork and completion workflow.</p></div><span class="pill" id="jobCountPill">0 Jobs</span></div>
+          <div class="job-header"><div><h2 style="margin-bottom:4px;">Today&apos;s Jobs</h2><p style="margin:0;">Today’s jobs and documents are loaded automatically from your dated Google Drive folder.</p></div><span class="pill" id="jobCountPill">0 Jobs</span></div>
           <div id="jobsList" class="card-grid"></div>
         </div>
 
@@ -430,7 +430,7 @@
           <div id="ramsPanel" class="panel hidden"><h2>RAMS – Read and Sign</h2><div class="section-intro">Open the RAMS from the job pack and confirm below.</div><label><input id="ramsConfirm" type="checkbox" style="width:auto;margin-right:8px;"> I have read and understood the RAMS.</label><label for="ramsSignature">Full Name</label><input id="ramsSignature" type="text"><button class="button" onclick="saveLocalWorkflowStep('rams')">Confirm RAMS Sign-Off</button><div id="ramsMessage"></div></div>
           <div id="workInstructionPanel" class="panel hidden"><h2>Work Instruction – Read and Sign</h2><div class="section-intro">Review the work instruction in the job pack.</div><label><input id="workInstructionConfirm" type="checkbox" style="width:auto;margin-right:8px;"> I have read and understood the work instruction.</label><label for="workInstructionSignature">Full Name</label><input id="workInstructionSignature" type="text"><button class="button" onclick="saveLocalWorkflowStep('workInstruction')">Confirm Work Instruction</button><div id="workInstructionMessage"></div></div>
           <div id="plantChecksPanel" class="panel hidden"><h2>Plant Check Sheets</h2><div class="section-intro">Select the plant used. Detailed checklists can be added when the client supplies the final forms.</div><label for="plantTypeSelect">Plant / Equipment</label><select id="plantTypeSelect"><option value="">Select...</option><option>Excavator</option><option>Dumper</option><option>Generator</option><option>Petrol Cut-Off Saw</option><option>CAT &amp; Genny</option><option>Cable Winch</option><option>Other</option></select><label for="plantIdentifier">Plant ID / Serial Number</label><input id="plantIdentifier" type="text"><label for="plantNotes">Notes / Defects</label><textarea id="plantNotes"></textarea><button class="button" onclick="saveLocalWorkflowStep('plant')">Save Plant Check</button><div id="plantMessage"></div></div>
-          <div id="evidencePanel" class="panel hidden"><h2>Completion Paperwork &amp; Photo Evidence</h2><div id="evidenceSelectedJob" class="pill" style="margin-bottom:14px;"></div><p>Photos upload to the logged-in operative&apos;s Photo Evidence folder.</p><label for="evidencePhotos">Photos</label><input id="evidencePhotos" type="file" accept="image/*" multiple><label for="evidenceNotes">Completion Notes</label><textarea id="evidenceNotes"></textarea><button id="evidenceSubmitButton" class="button" onclick="submitEvidence()">Submit Evidence</button><div id="evidenceMessage"></div></div>
+          <div id="evidencePanel" class="panel hidden"><h2>Completion Paperwork &amp; Photo Evidence</h2><div id="evidenceSelectedJob" class="pill" style="margin-bottom:14px;"></div><p>Photos upload into the selected job’s Photo Evidence subfolder.</p><label for="evidencePhotos">Photos</label><input id="evidencePhotos" type="file" accept="image/*" multiple><label for="evidenceNotes">Completion Notes</label><textarea id="evidenceNotes"></textarea><button id="evidenceSubmitButton" class="button" onclick="submitEvidence()">Submit Evidence</button><div id="evidenceMessage"></div></div>
           <div id="finishJobPanel" class="panel hidden"><h2>Final Job Sign-Off</h2><div class="section-intro">Confirm all work, paperwork and evidence are complete.</div><label><input id="finishWorkComplete" type="checkbox" style="width:auto;margin-right:8px;"> Physical work completed.</label><label><input id="finishPaperworkComplete" type="checkbox" style="width:auto;margin-right:8px;"> Required paperwork completed.</label><label><input id="finishPhotosComplete" type="checkbox" style="width:auto;margin-right:8px;"> Completion photos uploaded.</label><label for="finishSignature">Full Name</label><input id="finishSignature" type="text"><button class="button" onclick="saveLocalWorkflowStep('finish')">Complete Job</button><div id="finishMessage"></div></div>
         </div>
       </div>
@@ -678,7 +678,7 @@
           <div class="card">
             <div class="card-icon">📍</div>
             <h3>No Jobs Assigned</h3>
-            <p>No active jobs were found for you today.</p>
+            <p>No dated Drive folder or job folders were found for you today. The office should create today’s folder using DD-MM-YYYY and place job folders inside it.</p>
           </div>
         `;
         return;
@@ -866,7 +866,7 @@
 
       if (!selectedJob.folderId) {
         message.innerHTML =
-          `<div class="error">This job does not have a Google Drive Folder ID.</div>`;
+          `<div class="error">The selected Drive job folder could not be identified.</div>`;
         return;
       }
 
