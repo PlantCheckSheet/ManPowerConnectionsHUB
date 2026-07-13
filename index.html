@@ -456,14 +456,14 @@
             </div>
 
             <div class="tracking-actions">
-              <button class="button" onclick="performJobAction('accept')">Accept Job</button>
-              <button class="button" onclick="performJobAction('startTravel')">Start Travel</button>
-              <button class="button" onclick="performJobAction('arriveOnSite')">Arrive On Site</button>
-              <button class="button" onclick="performJobAction('startWork')">Start Work</button>
-              <button class="button secondary" onclick="performJobAction('pause')">Pause</button>
-              <button class="button secondary" onclick="performJobAction('resume')">Resume</button>
-              <button class="button secondary" onclick="performJobAction('pauseOvernight')">Pause Until Tomorrow</button>
-              <button class="button danger" onclick="performJobAction('complete')">Complete Job</button>
+              <button id="jobAction_accept" class="button job-action-button" onclick="performJobAction('accept')">Accept Job</button>
+              <button id="jobAction_startTravel" class="button job-action-button" onclick="performJobAction('startTravel')">Start Travel</button>
+              <button id="jobAction_arriveOnSite" class="button job-action-button" onclick="performJobAction('arriveOnSite')">Arrive On Site</button>
+              <button id="jobAction_startWork" class="button job-action-button" onclick="performJobAction('startWork')">Start Work</button>
+              <button id="jobAction_pause" class="button secondary job-action-button" onclick="performJobAction('pause')">Pause</button>
+              <button id="jobAction_resume" class="button secondary job-action-button" onclick="performJobAction('resume')">Resume</button>
+              <button id="jobAction_pauseOvernight" class="button secondary job-action-button" onclick="performJobAction('pauseOvernight')">Pause Until Tomorrow</button>
+              <button id="jobAction_complete" class="button danger job-action-button" onclick="performJobAction('complete')">Complete Job</button>
             </div>
 
             <div class="delay-box">
@@ -545,6 +545,7 @@
     let vanCheckComplete = false;
     let jobTracking = {};
     let currentJobTracking = null;
+    let jobActionInProgress = false;
 
     async function apiPost(payload) {
       const response = await fetch(WEB_APP_URL, {
@@ -783,11 +784,28 @@
       }
     }
 
+    function setJobActionButtonsDisabled(disabled, activeAction) {
+      document.querySelectorAll(".job-action-button").forEach(button => {
+        button.disabled = disabled;
+
+        if (disabled && button.id === `jobAction_${activeAction}`) {
+          button.dataset.originalText = button.textContent;
+          button.textContent = "Saving...";
+        } else if (!disabled && button.dataset.originalText) {
+          button.textContent = button.dataset.originalText;
+          delete button.dataset.originalText;
+        }
+      });
+    }
+
     async function performJobAction(jobAction) {
-      if (!selectedJob || !currentOperative) return;
+      if (!selectedJob || !currentOperative || jobActionInProgress) return;
 
       const message = document.getElementById("trackingMessage");
       message.innerHTML = "";
+
+      jobActionInProgress = true;
+      setJobActionButtonsDisabled(true, jobAction);
 
       let notes = "";
 
@@ -799,6 +817,8 @@
         if (!notes.trim()) {
           message.innerHTML =
             `<div class="error">Please provide continuation notes before pausing until tomorrow.</div>`;
+          jobActionInProgress = false;
+          setJobActionButtonsDisabled(false);
           return;
         }
       }
@@ -811,7 +831,11 @@
           "Confirm that the job and all required paperwork are complete?"
         );
 
-        if (!confirmed) return;
+        if (!confirmed) {
+          jobActionInProgress = false;
+          setJobActionButtonsDisabled(false);
+          return;
+        }
 
         completionSignature = prompt(
           "Enter your full name as your completion signature:"
@@ -820,6 +844,8 @@
         if (!completionSignature.trim()) {
           message.innerHTML =
             `<div class="error">A completion signature or full name is required.</div>`;
+          jobActionInProgress = false;
+          setJobActionButtonsDisabled(false);
           return;
         }
 
@@ -883,6 +909,9 @@
       } catch (error) {
         message.innerHTML =
           `<div class="error">${safeText(error.message)}</div>`;
+      } finally {
+        jobActionInProgress = false;
+        setJobActionButtonsDisabled(false);
       }
     }
 
@@ -1189,6 +1218,7 @@
       vanCheckComplete = false;
       jobTracking = {};
       currentJobTracking = null;
+      jobActionInProgress = false;
 
       document.getElementById("pinInput").value = "";
       document.getElementById("vanCheckNotes").value = "";
