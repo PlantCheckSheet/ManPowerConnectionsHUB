@@ -527,7 +527,7 @@
             <div class="workflow-step" id="stepPermit"><div class="workflow-icon">⛏️</div><div class="workflow-copy"><strong>Permit to Dig</strong><span>Confirm service detection and controls</span></div><button class="workflow-action" onclick="showWorkflowSection('permitPanel')">Complete</button></div>
             <div class="workflow-step" id="stepRams"><div class="workflow-icon">📄</div><div class="workflow-copy"><strong>RAMS – Read and Sign</strong><span>Confirm RAMS have been read</span></div><button class="workflow-action" onclick="showWorkflowSection('ramsPanel')">Open</button></div>
             <div class="workflow-step" id="stepWorkInstruction"><div class="workflow-icon">📋</div><div class="workflow-copy"><strong>Work Instruction – Read and Sign</strong><span>Review the job-specific instruction</span></div><button class="workflow-action" onclick="showWorkflowSection('workInstructionPanel')">Open</button></div>
-            <div class="workflow-step" id="stepQF76"><div class="workflow-icon">🏗️</div><div class="workflow-copy"><strong>QF76 Substation Installation Checklist</strong><span>Complete the client&apos;s checklist live onsite</span></div><button class="workflow-action" onclick="showWorkflowSection('qf76Panel')">Open</button></div>
+            <div class="workflow-step" id="stepQF76"><div class="workflow-icon">🏗️</div><div class="workflow-copy"><strong>QF76 Substation Installation Checklist</strong><span>Complete the client&apos;s checklist live onsite</span></div><button class="workflow-action" onclick="openLiveForm('QF76')">Open</button></div>
             <div class="workflow-step" id="stepPlant"><div class="workflow-icon">🚜</div><div class="workflow-copy"><strong>Plant Check Sheets</strong><span>Record plant used onsite</span></div><button class="workflow-action" onclick="showWorkflowSection('plantChecksPanel')">Open</button></div>
             <div class="workflow-step" id="stepEvidence"><div class="workflow-icon">📷</div><div class="workflow-copy"><strong>Completion Paperwork &amp; Photo Evidence</strong><span>Upload completion photos</span></div><button class="workflow-action" onclick="showWorkflowSection('evidencePanel')">Upload</button></div>
             <div class="workflow-step" id="stepFinish"><div class="workflow-icon">✅</div><div class="workflow-copy"><strong>Final Job Sign-Off</strong><span>Confirm all work and paperwork are complete</span></div><button class="workflow-action" onclick="showWorkflowSection('finishJobPanel')">Finish</button></div>
@@ -540,27 +540,23 @@
           <div id="permitPanel" class="panel hidden"><h2>Permit to Dig</h2><div class="section-intro">Confirm service-location and excavation controls.</div><div class="form-grid"><div><label for="permitNumber">Permit Number</label><input id="permitNumber" type="text"></div><div><label for="permitScan">CAT &amp; Genny Scan Completed?</label><select id="permitScan"><option value="">Select...</option><option>Yes</option><option>No</option></select></div><div><label for="permitMarked">Services Marked?</label><select id="permitMarked"><option value="">Select...</option><option>Yes</option><option>No</option></select></div></div><label for="permitNotes">Permit Notes</label><textarea id="permitNotes"></textarea><button class="button" onclick="saveLocalWorkflowStep('permit')">Save Permit to Dig</button><div id="permitMessage"></div></div>
           <div id="ramsPanel" class="panel hidden"><h2>RAMS – Read and Sign</h2><div class="section-intro">Open the RAMS from the job pack and confirm below.</div><label><input id="ramsConfirm" type="checkbox" style="width:auto;margin-right:8px;"> I have read and understood the RAMS.</label><label for="ramsSignature">Full Name</label><input id="ramsSignature" type="text"><button class="button" onclick="saveLocalWorkflowStep('rams')">Confirm RAMS Sign-Off</button><div id="ramsMessage"></div></div>
           <div id="workInstructionPanel" class="panel hidden"><h2>Work Instruction – Read and Sign</h2><div class="section-intro">Review the work instruction in the job pack.</div><label><input id="workInstructionConfirm" type="checkbox" style="width:auto;margin-right:8px;"> I have read and understood the work instruction.</label><label for="workInstructionSignature">Full Name</label><input id="workInstructionSignature" type="text"><button class="button" onclick="saveLocalWorkflowStep('workInstruction')">Confirm Work Instruction</button><div id="workInstructionMessage"></div></div>
-          <div id="qf76Panel" class="panel hidden">
-            <h2>QF76 Secondary Substation Installation Checklist</h2>
-            <div class="section-intro">Client form: QF76 Issue 2, May 2026. Save a draft or submit the completed form to generate a PDF.</div>
-            <div class="form-grid">
-              <div><label for="qf76Project">Project</label><input id="qf76Project" type="text" placeholder="Enter project"></div>
-              <div><label for="qf76ProjectReference">Project Reference</label><input id="qf76ProjectReference" type="text" placeholder="Enter project reference"></div>
-              <div><label for="qf76Customer">Customer / Developer</label><input id="qf76Customer" type="text" placeholder="Enter customer or developer"></div>
-              <div><label for="qf76Company">Company</label><input id="qf76Company" type="text" placeholder="Enter company"></div>
+          <div id="liveFormPanel" class="panel hidden">
+            <div class="job-header">
+              <div>
+                <h2 id="liveFormTitle">Live Form</h2>
+                <p id="liveFormSubtitle" style="margin:0;"></p>
+              </div>
+              <span id="liveFormStatusPill" class="pill">Not Started</span>
             </div>
-            <div id="qf76Checklist" class="qf76-list"></div>
-            <label for="qf76Comments">Comments</label>
-            <textarea id="qf76Comments" placeholder="Record delays, materials provided by MPC, stand-down time and other notes..."></textarea>
-            <div class="form-grid">
-              <div><label for="qf76CompletedBy">Completed By</label><input id="qf76CompletedBy" type="text" placeholder="Full name"></div>
-              <div><label for="qf76Signature">Signature / Full Name</label><input id="qf76Signature" type="text" placeholder="Enter full name as signature"></div>
-            </div>
+
+            <div id="liveFormContents"></div>
+
             <div class="qf76-actions">
-              <button id="qf76DraftButton" class="button secondary" onclick="saveQF76(false)">Save Draft</button>
-              <button id="qf76SubmitButton" class="button" onclick="saveQF76(true)">Submit Final</button>
+              <button id="liveFormDraftButton" class="button secondary" onclick="saveCurrentLiveForm(false)">Save Draft</button>
+              <button id="liveFormSubmitButton" class="button" onclick="saveCurrentLiveForm(true)">Submit Final</button>
             </div>
-            <div id="qf76Message"></div>
+
+            <div id="liveFormMessage"></div>
           </div>
           <div id="plantChecksPanel" class="panel hidden"><h2>Plant Check Sheets</h2><div class="section-intro">Select the plant used. Detailed checklists can be added when the client supplies the final forms.</div><label for="plantTypeSelect">Plant / Equipment</label><select id="plantTypeSelect"><option value="">Select...</option><option>Excavator</option><option>Dumper</option><option>Generator</option><option>Petrol Cut-Off Saw</option><option>CAT &amp; Genny</option><option>Cable Winch</option><option>Other</option></select><label for="plantIdentifier">Plant ID / Serial Number</label><input id="plantIdentifier" type="text"><label for="plantNotes">Notes / Defects</label><textarea id="plantNotes"></textarea><button class="button" onclick="saveLocalWorkflowStep('plant')">Save Plant Check</button><div id="plantMessage"></div></div>
           <div id="evidencePanel" class="panel hidden"><h2>Completion Paperwork &amp; Photo Evidence</h2><div id="evidenceSelectedJob" class="pill" style="margin-bottom:14px;"></div><p>Photos upload into the selected job’s Photo Evidence subfolder.</p><label for="evidencePhotos">Photos</label><input id="evidencePhotos" type="file" accept="image/*" multiple><label for="evidenceNotes">Completion Notes</label><textarea id="evidenceNotes"></textarea><button id="evidenceSubmitButton" class="button" onclick="submitEvidence()">Submit Evidence</button><div id="evidenceMessage"></div></div>
@@ -876,8 +872,9 @@
           jobActionInProgress = false;
       activeDelay = null;
       delayActionInProgress = false;
-      qf76LoadedForFolder="";
-      qf76Status="";
+      currentLiveFormId="";
+      currentLiveFormStatus="";
+      currentLiveFormLoadedFolder="";
       stopDelayTicker();
           setJobActionButtonsDisabled(false);
           return;
@@ -1234,165 +1231,520 @@
     }
 
 
-    const qf76Items = [
-      {key:"transformerPosition",label:"Transformer landed and in correct position."},
-      {key:"antiVibrationPads",label:"Anti Vibration Pads installed."},
-      {key:"ukpnTransformerPosition",label:"UKPN – Transformer positioned over to the LEFT. RTU must be 500mm away from HV end box. Position support bar on transformer back fully on plinth base to achieve this."},
-      {key:"grpInstalled",label:"GRP landed, bolted down and siliconed. Cat flap for LV generator tails is on the same side as the LV feeder pillar."},
-      {key:"externalEarthing",label:"Installation of external earthing as per design. Take photos of CAD/FURSE weld."},
-      {key:"internalEarthing",label:"Installation of internal earthing as per design. LV cabinet, transformer and HV RMU earths connected."},
-      {key:"rtuInstallation",label:"Installation / mounting of RTU complete and ready for commissioning, where applicable."},
-      {key:"earthLabels",label:"All earths labelled at earth bar. Take photo of connections and labels."},
-      {key:"hotColdSite",label:"Hot or cold site confirmed. Separate LV earth and correct links checked where applicable."},
-      {key:"hotSiteWarning",label:"Hot Site warning label installed, if applicable."},
-      {key:"doorsVentsBonded",label:"Door frames and vents bonded, if required."},
-      {key:"earthTest",label:"Earth test complete. Take photos of recorded results."},
-      {key:"hvTerminations",label:"HV terminations complete."},
-      {key:"sheathTest",label:"Sheath Test 5kV completed. Results recorded in comments and photographed."},
-      {key:"lvTerminations",label:"LV terminations complete. Number installed and cable specification recorded in notes."},
-      {key:"ukpnDirectEarth",label:"UKPN direct earth from inside LV cabinet to earth bar installed."},
-      {key:"lvDeadTests",label:"LV dead tests complete. Results recorded in comments and photographed."},
-      {key:"lvSwa",label:"LV SWA from LV cabinet into distribution board installed and glanded."},
-      {key:"batonLight",label:"UKPN baton light installed above the substation doors."},
-      {key:"grpGrating",label:"GRP grating installed."}
-    ];
+    const FORM_DEFINITIONS = {
+      QF76: {
+        id: "QF76",
+        code: "QF76 Issue 2 May 2026",
+        title: "Secondary Substation Installation Checklist",
+        version: "Issue 2 – May 2026",
+        sections: [
+          {
+            title: "Substation Details",
+            fields: [
+              {
+                key: "project",
+                label: "Project",
+                type: "text",
+                required: true
+              },
+              {
+                key: "projectReference",
+                label: "Project Reference",
+                type: "text",
+                required: true
+              },
+              {
+                key: "customerDeveloper",
+                label: "Customer / Developer",
+                type: "text",
+                required: false
+              }
+            ]
+          },
+          {
+            title: "Substation Installation Complete",
+            fields: [
+              {
+                key: "installationChecklist",
+                label: "Substation Installation Checklist",
+                type: "checklist",
+                required: true,
+                options: ["Complete", "N/A", "Defect / Incomplete"],
+                items: [
+                  {
+                    key: "transformerPosition",
+                    label: "Transformer Landed and in correct position."
+                  },
+                  {
+                    key: "antiVibrationPads",
+                    label: "Anti Vibration Pads installed."
+                  },
+                  {
+                    key: "ukpnTransformerPosition",
+                    label: "UKPN – Tx positioned over to the LEFT - RTU must be 500mm away from HV end box. Position support bar on TX back fully on plinth base to achieve this."
+                  },
+                  {
+                    key: "grpInstalled",
+                    label: "GRP landed, Bolted down and siliconed. Make sure cat flap for LV generator tails is same side as LV feeder pillar."
+                  },
+                  {
+                    key: "externalEarthing",
+                    label: "Installation of external earthing as per design. Take photos of CAD/FURSE weld."
+                  },
+                  {
+                    key: "internalEarthing",
+                    label: "Installation of internal earthing as per design. LV Cab, TX and HV RMU earths connected."
+                  },
+                  {
+                    key: "rtuInstallation",
+                    label: "Installation / Mounting of RTU complete ready for commissioning if UKPN with 16mm external earth."
+                  },
+                  {
+                    key: "earthLabels",
+                    label: "All Earths labelled at earth bar. Take photo of connections and labels."
+                  },
+                  {
+                    key: "hotColdSite",
+                    label: "Confirm whether this is a HOT SITE or COLD SITE. Check whether separate LV earth is required and correct links are removed inside LV cab."
+                  },
+                  {
+                    key: "hotSiteWarning",
+                    label: "Hot Site warning Label installed if applicable."
+                  },
+                  {
+                    key: "doorsVentsBonded",
+                    label: "Door frames and vents bonded if required."
+                  },
+                  {
+                    key: "earthTestComplete",
+                    label: "Earth test complete. Take photos of results recorded."
+                  },
+                  {
+                    key: "hvTerminations",
+                    label: "HV terminations."
+                  },
+                  {
+                    key: "sheathTest",
+                    label: "Sheath Test 5kV. Note results in comments and take photos of results."
+                  },
+                  {
+                    key: "lvTerminations",
+                    label: "LV terminations. Confirm number installed and specification of cable in notes."
+                  },
+                  {
+                    key: "ukpnDirectEarth",
+                    label: "UKPN require a direct earth from inside LV CAB to earth bar."
+                  },
+                  {
+                    key: "lvDeadTests",
+                    label: "LV dead tests complete. Note results in comments and take photos of results."
+                  },
+                  {
+                    key: "lvSwa",
+                    label: "Installation of LV SWA from LV cabinet into Distribution board. Glanded."
+                  },
+                  {
+                    key: "batonLight",
+                    label: "UKPN require a Baton Light above the substation doors."
+                  },
+                  {
+                    key: "grpGrating",
+                    label: "Install GRP Grating."
+                  }
+                ]
+              },
+              {
+                key: "earthTestResult",
+                label: "Earth Test Result (Ω)",
+                type: "number",
+                required: false
+              },
+              {
+                key: "sheathTestResult",
+                label: "Sheath Test 5kV Result (Ω)",
+                type: "number",
+                required: false
+              },
+              {
+                key: "comments",
+                label: "Comments – including delays, materials provided by MPC and stand-down time",
+                type: "textarea",
+                required: false
+              },
+              {
+                key: "notes",
+                label: "Notes",
+                type: "textarea",
+                required: false
+              }
+            ]
+          },
+          {
+            title: "Completion",
+            fields: [
+              {
+                key: "completedBy",
+                label: "Completed By",
+                type: "text",
+                required: true,
+                defaultFromOperative: true
+              },
+              {
+                key: "company",
+                label: "Company",
+                type: "text",
+                required: true,
+                defaultValue: "ManPowerConnections"
+              },
+              {
+                key: "signature",
+                label: "Signature / Full Name",
+                type: "text",
+                required: true
+              }
+            ]
+          }
+        ]
+      }
+    };
 
-    let qf76LoadedForFolder="";
-    let qf76Status="";
+    let currentLiveFormId = "";
+    let currentLiveFormStatus = "";
+    let currentLiveFormLoadedFolder = "";
 
-    function renderQF76Checklist(){
-      const container=document.getElementById("qf76Checklist");
-      container.innerHTML=qf76Items.map((item,index)=>`
-        <div class="qf76-item">
-          <div class="qf76-item-title">${index+1}. ${safeText(item.label)}</div>
-          <div class="qf76-options">
-            <label><input type="radio" name="qf76_${item.key}" value="Complete"><span>Complete</span></label>
-            <label><input type="radio" name="qf76_${item.key}" value="N/A"><span>N/A</span></label>
-            <label><input type="radio" name="qf76_${item.key}" value="Defect / Incomplete"><span>Defect</span></label>
+    function renderLiveFormField(field, savedValue) {
+      const requiredMark = field.required
+        ? ' <span style="color:#dc2626;">*</span>'
+        : "";
+
+      if (field.type === "checklist") {
+        const checklistValue = savedValue || {};
+
+        return `
+          <div class="form-card">
+            <h3>${safeText(field.label)}${requiredMark}</h3>
+            <div class="qf76-list">
+              ${(field.items || []).map((item, index) => `
+                <div class="qf76-item">
+                  <div class="qf76-item-title">
+                    ${index + 1}. ${safeText(item.label)}
+                  </div>
+                  <div class="qf76-options">
+                    ${(field.options || []).map(option => `
+                      <label>
+                        <input
+                          type="radio"
+                          name="live_${field.key}_${item.key}"
+                          value="${safeText(option)}"
+                          ${checklistValue[item.key] === option ? "checked" : ""}
+                        >
+                        <span>${safeText(
+                          option === "Defect / Incomplete"
+                            ? "Defect"
+                            : option
+                        )}</span>
+                      </label>
+                    `).join("")}
+                  </div>
+                </div>
+              `).join("")}
+            </div>
           </div>
-        </div>`).join("");
+        `;
+      }
+
+      const value =
+        savedValue !== undefined && savedValue !== null
+          ? savedValue
+          : field.defaultFromOperative && currentOperative
+            ? currentOperative.name
+            : field.defaultValue || "";
+
+      if (field.type === "textarea") {
+        return `
+          <label for="live_${field.key}">
+            ${safeText(field.label)}${requiredMark}
+          </label>
+          <textarea
+            id="live_${field.key}"
+            data-live-field="${field.key}"
+            placeholder="${safeText(field.label)}"
+          >${safeText(value)}</textarea>
+        `;
+      }
+
+      return `
+        <label for="live_${field.key}">
+          ${safeText(field.label)}${requiredMark}
+        </label>
+        <input
+          id="live_${field.key}"
+          data-live-field="${field.key}"
+          type="${field.type === "number" ? "number" : "text"}"
+          value="${safeText(value)}"
+          placeholder="${safeText(field.label)}"
+        >
+      `;
     }
 
-    function collectQF76Checklist(){
-      const checklist={};
-      qf76Items.forEach(item=>{
-        const selected=document.querySelector(`input[name="qf76_${item.key}"]:checked`);
-        checklist[item.key]=selected?selected.value:"";
+    function renderLiveForm(definition, savedData) {
+      const contents = document.getElementById(
+        "liveFormContents"
+      );
+
+      contents.innerHTML = definition.sections.map(section => `
+        <div class="form-card">
+          <h3>${safeText(section.title)}</h3>
+          ${(section.fields || []).map(field =>
+            renderLiveFormField(
+              field,
+              savedData ? savedData[field.key] : undefined
+            )
+          ).join("")}
+        </div>
+      `).join("");
+    }
+
+    function collectCurrentLiveFormData() {
+      const definition =
+        FORM_DEFINITIONS[currentLiveFormId];
+
+      const data = {};
+
+      definition.sections.forEach(section => {
+        (section.fields || []).forEach(field => {
+          if (field.type === "checklist") {
+            const checklist = {};
+
+            (field.items || []).forEach(item => {
+              const selected = document.querySelector(
+                `input[name="live_${field.key}_${item.key}"]:checked`
+              );
+
+              checklist[item.key] = selected
+                ? selected.value
+                : "";
+            });
+
+            data[field.key] = checklist;
+          } else {
+            const control = document.querySelector(
+              `[data-live-field="${field.key}"]`
+            );
+
+            data[field.key] = control
+              ? control.value.trim()
+              : "";
+          }
+        });
       });
-      return checklist;
+
+      return data;
     }
 
-    function populateQF76Checklist(checklist){
-      qf76Items.forEach(item=>{
-        const value=checklist&&checklist[item.key];
-        if(!value)return;
-        const radios=document.querySelectorAll(`input[name="qf76_${item.key}"]`);
-        radios.forEach(radio=>{if(radio.value===value)radio.checked=true;});
+    function setLiveFormReadOnly(readOnly) {
+      document.querySelectorAll(
+        "#liveFormPanel input, #liveFormPanel textarea, #liveFormPanel select"
+      ).forEach(control => {
+        control.disabled = readOnly;
       });
+
+      document.getElementById(
+        "liveFormDraftButton"
+      ).disabled = readOnly;
+
+      document.getElementById(
+        "liveFormSubmitButton"
+      ).disabled = readOnly;
     }
 
-    function setQF76ReadOnly(readOnly){
-      document.querySelectorAll("#qf76Panel input,#qf76Panel textarea,#qf76Panel select").forEach(control=>control.disabled=readOnly);
-      document.getElementById("qf76DraftButton").disabled=readOnly;
-      document.getElementById("qf76SubmitButton").disabled=readOnly;
-    }
+    async function openLiveForm(formId) {
+      if (!selectedJob || !currentOperative) {
+        return;
+      }
 
-    async function loadQF76(){
-      if(!selectedJob||!currentOperative)return;
-      if(qf76LoadedForFolder===selectedJob.folderId)return;
+      const definition = FORM_DEFINITIONS[formId];
 
-      qf76LoadedForFolder=selectedJob.folderId;
-      qf76Status="";
-      renderQF76Checklist();
-      setQF76ReadOnly(false);
+      if (!definition) {
+        return;
+      }
 
-      document.getElementById("qf76Project").value=selectedJob.jobName||"";
-      document.getElementById("qf76ProjectReference").value="";
-      document.getElementById("qf76Customer").value="";
-      document.getElementById("qf76Company").value="ManPowerConnections";
-      document.getElementById("qf76Comments").value="";
-      document.getElementById("qf76CompletedBy").value=currentOperative.name||"";
-      document.getElementById("qf76Signature").value="";
-      document.getElementById("qf76Message").innerHTML="";
+      currentLiveFormId = formId;
+      currentLiveFormStatus = "";
+      currentLiveFormLoadedFolder = selectedJob.folderId;
 
-      try{
-        const data=await apiPost({
-          action:"getQF76",
-          name:currentOperative.name,
-          folderId:selectedJob.folderId
+      hideWorkflowSections();
+
+      const panel = document.getElementById(
+        "liveFormPanel"
+      );
+
+      panel.classList.remove("hidden");
+
+      document.getElementById(
+        "liveFormTitle"
+      ).textContent = definition.title;
+
+      document.getElementById(
+        "liveFormSubtitle"
+      ).textContent =
+        `${definition.code} • ${selectedJob.jobName}`;
+
+      document.getElementById(
+        "liveFormStatusPill"
+      ).textContent = "Loading...";
+
+      document.getElementById(
+        "liveFormMessage"
+      ).innerHTML = "";
+
+      setLiveFormReadOnly(false);
+      renderLiveForm(definition, {});
+
+      try {
+        const response = await apiPost({
+          action: "getLiveForm",
+          formId: formId,
+          name: currentOperative.name,
+          folderId: selectedJob.folderId
         });
 
-        if(!data.found)return;
+        if (response.found) {
+          currentLiveFormStatus =
+            response.status || "";
 
-        document.getElementById("qf76Project").value=data.project||selectedJob.jobName||"";
-        document.getElementById("qf76ProjectReference").value=data.projectReference||"";
-        document.getElementById("qf76Customer").value=data.customerDeveloper||"";
-        document.getElementById("qf76Company").value=data.company||"ManPowerConnections";
-        document.getElementById("qf76Comments").value=data.comments||"";
-        document.getElementById("qf76CompletedBy").value=data.completedBy||currentOperative.name||"";
-        document.getElementById("qf76Signature").value=data.signature||"";
-        populateQF76Checklist(data.checklist||{});
-        qf76Status=data.status||"";
+          renderLiveForm(
+            definition,
+            response.formData || {}
+          );
 
-        if(data.status==="Submitted"){
-          setQF76ReadOnly(true);
-          document.getElementById("qf76Message").innerHTML=`<div class="success">QF76 has been submitted.${data.pdfUrl?`<br><br><a href="${safeText(data.pdfUrl)}" target="_blank" rel="noopener" style="color:#166534;font-weight:900;">Open QF76 PDF</a>`:""}</div>`;
-        }else{
-          document.getElementById("qf76Message").innerHTML=`<div class="success">Draft loaded.</div>`;
+          document.getElementById(
+            "liveFormStatusPill"
+          ).textContent =
+            response.status || "Draft";
+
+          if (response.status === "Submitted") {
+            setLiveFormReadOnly(true);
+
+            document.getElementById(
+              "liveFormMessage"
+            ).innerHTML = `
+              <div class="success">
+                This form has been submitted.
+                ${response.pdfUrl ? `
+                  <br><br>
+                  <a
+                    href="${safeText(response.pdfUrl)}"
+                    target="_blank"
+                    rel="noopener"
+                    style="color:#166534;font-weight:900;"
+                  >
+                    Open Completed PDF
+                  </a>
+                ` : ""}
+              </div>
+            `;
+          }
+        } else {
+          document.getElementById(
+            "liveFormStatusPill"
+          ).textContent = "Not Started";
         }
-      }catch(error){
-        document.getElementById("qf76Message").innerHTML=`<div class="error">${safeText(error.message)}</div>`;
+      } catch (error) {
+        document.getElementById(
+          "liveFormMessage"
+        ).innerHTML =
+          `<div class="error">${safeText(error.message)}</div>`;
+      }
+
+      panel.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }
+
+    async function saveCurrentLiveForm(submitFinal) {
+      if (
+        !selectedJob ||
+        !currentOperative ||
+        !currentLiveFormId
+      ) {
+        return;
+      }
+
+      const definition =
+        FORM_DEFINITIONS[currentLiveFormId];
+
+      const message = document.getElementById(
+        "liveFormMessage"
+      );
+      const draftButton = document.getElementById(
+        "liveFormDraftButton"
+      );
+      const submitButton = document.getElementById(
+        "liveFormSubmitButton"
+      );
+
+      draftButton.disabled = true;
+      submitButton.disabled = true;
+      message.innerHTML = "";
+
+      try {
+        const response = await apiPost({
+          action: "saveLiveForm",
+          formId: definition.id,
+          formTitle: definition.title,
+          formVersion: definition.version,
+          name: currentOperative.name,
+          jobName: selectedJob.jobName,
+          folderId: selectedJob.folderId,
+          formData: collectCurrentLiveFormData(),
+          definition: definition,
+          submitFinal: submitFinal === true
+        });
+
+        currentLiveFormStatus =
+          response.status || "";
+
+        document.getElementById(
+          "liveFormStatusPill"
+        ).textContent = response.status;
+
+        if (submitFinal) {
+          setLiveFormReadOnly(true);
+
+          message.innerHTML = `
+            <div class="success">
+              Form submitted successfully.
+              ${response.pdfUrl ? `
+                <br><br>
+                <a
+                  href="${safeText(response.pdfUrl)}"
+                  target="_blank"
+                  rel="noopener"
+                  style="color:#166534;font-weight:900;"
+                >
+                  Open Completed PDF
+                </a>
+              ` : ""}
+            </div>
+          `;
+        } else {
+          message.innerHTML =
+            `<div class="success">Draft saved at ${safeText(response.updatedTime)}.</div>`;
+        }
+      } catch (error) {
+        message.innerHTML =
+          `<div class="error">${safeText(error.message)}</div>`;
+      } finally {
+        if (currentLiveFormStatus !== "Submitted") {
+          draftButton.disabled = false;
+          submitButton.disabled = false;
+        }
       }
     }
 
-    async function saveQF76(submitFinal){
-      if(!selectedJob||!currentOperative)return;
-
-      const message=document.getElementById("qf76Message");
-      const draftButton=document.getElementById("qf76DraftButton");
-      const submitButton=document.getElementById("qf76SubmitButton");
-
-      message.innerHTML="";
-      draftButton.disabled=true;
-      submitButton.disabled=true;
-
-      try{
-        const data=await apiPost({
-          action:"saveQF76",
-          name:currentOperative.name,
-          jobName:selectedJob.jobName,
-          folderId:selectedJob.folderId,
-          project:document.getElementById("qf76Project").value.trim(),
-          projectReference:document.getElementById("qf76ProjectReference").value.trim(),
-          customerDeveloper:document.getElementById("qf76Customer").value.trim(),
-          company:document.getElementById("qf76Company").value.trim(),
-          comments:document.getElementById("qf76Comments").value.trim(),
-          completedBy:document.getElementById("qf76CompletedBy").value.trim(),
-          signature:document.getElementById("qf76Signature").value.trim(),
-          checklist:collectQF76Checklist(),
-          items:qf76Items,
-          submitFinal:submitFinal===true
-        });
-
-        qf76Status=data.status;
-
-        if(submitFinal){
-          setQF76ReadOnly(true);
-          message.innerHTML=`<div class="success">QF76 submitted successfully.${data.pdfUrl?`<br><br><a href="${safeText(data.pdfUrl)}" target="_blank" rel="noopener" style="color:#166534;font-weight:900;">Open QF76 PDF</a>`:""}</div>`;
-        }else{
-          message.innerHTML=`<div class="success">Draft saved at ${safeText(data.updatedTime)}.</div>`;
-        }
-      }catch(error){
-        message.innerHTML=`<div class="error">${safeText(error.message)}</div>`;
-      }finally{
-        if(qf76Status!=="Submitted"){
-          draftButton.disabled=false;
-          submitButton.disabled=false;
-        }
-      }
-    }
-
-    const workflowSections = ["documentsPanel","riskAssessmentPanel","permitPanel","ramsPanel","workInstructionPanel","qf76Panel","plantChecksPanel","evidencePanel","finishJobPanel"];
+    const workflowSections = ["documentsPanel","riskAssessmentPanel","permitPanel","ramsPanel","workInstructionPanel","liveFormPanel","plantChecksPanel","evidencePanel","finishJobPanel"];
     const workflowState = {riskAssessment:false,permit:false,rams:false,workInstruction:false,plant:false,evidence:false,finish:false};
     function hideWorkflowSections(){workflowSections.forEach(id=>{const p=document.getElementById(id);if(p)p.classList.add("hidden");});}
     function showWorkflowSection(id){if(!selectedJob)return;hideWorkflowSections();const p=document.getElementById(id);if(p){p.classList.remove("hidden");p.scrollIntoView({behavior:"smooth",block:"start"});}if(id==="documentsPanel"){document.getElementById("documentsSelectedJob").textContent=`${selectedJob.jobName||"Unnamed Job"} • ${selectedJob.site||"Site not entered"}`;renderDocuments();}if(id==="evidencePanel"){document.getElementById("evidenceSelectedJob").textContent=`${selectedJob.jobName||"Unnamed Job"} • ${selectedJob.site||"Site not entered"}`;}}
