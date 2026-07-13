@@ -328,6 +328,42 @@
     .section-intro { background:#eef9fb; border:1px solid #cceef3; border-radius:14px; padding:12px 14px; margin-bottom:14px; color:var(--mpc-charcoal); font-weight:800; font-size:13px; }
     .form-grid { display:grid; grid-template-columns:1fr; gap:12px; }
     @media (min-width:700px){ .form-grid { grid-template-columns:1fr 1fr; } }
+    .tracking-card {
+      margin-top: 16px;
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid #dce5ea;
+      background: #f8fbfc;
+    }
+    .tracking-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .tracking-actions .button {
+      margin-top: 0;
+      padding: 12px;
+      font-size: 13px;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #e8f8fb;
+      color: var(--mpc-cyan-dark);
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .delay-box {
+      margin-top: 14px;
+      border-top: 1px solid #dce5ea;
+      padding-top: 14px;
+    }
+    @media (min-width: 700px) {
+      .tracking-actions { grid-template-columns: repeat(4, 1fr); }
+    }
+
     footer { text-align: center; padding: 18px; color: rgba(255,255,255,0.78); font-size: 12px; font-weight: 700; }
 
     @media (min-width: 700px) {
@@ -410,6 +446,50 @@
 
         <div id="jobWorkflowPanel" class="panel workflow-panel hidden">
           <div class="job-header"><div><h2 id="workflowJobTitle" style="margin-bottom:4px;">Job Workflow</h2><p id="workflowJobSubtitle" style="margin:0;">Complete the required sections for this job.</p></div><span class="pill" id="workflowProgressPill">1 of 8 Complete</span></div>
+          <div class="tracking-card">
+            <div class="job-header" style="margin-bottom:0;">
+              <div>
+                <strong style="display:block; color:var(--mpc-charcoal);">Job Time &amp; Status</strong>
+                <span id="jobTrackingStatus" class="status-badge" style="margin-top:8px;">Not Accepted</span>
+              </div>
+              <span id="jobTrackingTime" class="small-note"></span>
+            </div>
+
+            <div class="tracking-actions">
+              <button class="button" onclick="performJobAction('accept')">Accept Job</button>
+              <button class="button" onclick="performJobAction('startTravel')">Start Travel</button>
+              <button class="button" onclick="performJobAction('arriveOnSite')">Arrive On Site</button>
+              <button class="button" onclick="performJobAction('startWork')">Start Work</button>
+              <button class="button secondary" onclick="performJobAction('pause')">Pause</button>
+              <button class="button secondary" onclick="performJobAction('resume')">Resume</button>
+              <button class="button secondary" onclick="performJobAction('pauseOvernight')">Pause Until Tomorrow</button>
+              <button class="button danger" onclick="performJobAction('complete')">Complete Job</button>
+            </div>
+
+            <div class="delay-box">
+              <label for="delayReason">Report Lost Time / Delay</label>
+              <select id="delayReason">
+                <option value="">Select reason...</option>
+                <option>Plant Breakdown</option>
+                <option>Awaiting Materials</option>
+                <option>Awaiting Traffic Management</option>
+                <option>Awaiting Access</option>
+                <option>Awaiting Instructions</option>
+                <option>Utility Conflict</option>
+                <option>Weather</option>
+                <option>Permit Delay</option>
+                <option>Customer Delay</option>
+                <option>Other</option>
+              </select>
+
+              <label for="delayNotes">Delay Notes</label>
+              <textarea id="delayNotes" placeholder="Explain the delay and any action taken..."></textarea>
+
+              <button class="button secondary" onclick="submitDelayReport()">Report Delay</button>
+              <div id="trackingMessage"></div>
+            </div>
+          </div>
+
           <div class="workflow-list">
             <div class="workflow-step complete"><div class="workflow-icon">🚐</div><div class="workflow-copy"><strong>Vehicle Inspection</strong><span>Completed before job access</span></div><button class="workflow-action secondary" disabled>Complete</button></div>
             <div class="workflow-step"><div class="workflow-icon">📂</div><div class="workflow-copy"><strong>Job Pack – Electrical / Civils</strong><span>View documents assigned to this job</span></div><button class="workflow-action" onclick="showWorkflowSection('documentsPanel')">Open</button></div>
@@ -463,6 +543,8 @@
     let currentOperative = null;
     let selectedJob = null;
     let vanCheckComplete = false;
+    let jobTracking = {};
+    let currentJobTracking = null;
 
     async function apiPost(payload) {
       const response = await fetch(WEB_APP_URL, {
@@ -581,6 +663,8 @@
           jobs: dashboardData.jobs || []
         };
 
+        jobTracking = dashboardData.tracking || {};
+
         selectedJob = null;
         vanCheckComplete = dashboardData.vanCheckComplete === true;
 
@@ -653,6 +737,135 @@
         `✅ Evidence <span>Unlocked</span>`;
 
       renderJobs();
+    }
+
+    function updateTrackingDisplay() {
+      const statusEl = document.getElementById("jobTrackingStatus");
+      const timeEl = document.getElementById("jobTrackingTime");
+
+      if (!selectedJob || !statusEl) return;
+
+      const tracking = jobTracking[selectedJob.folderId] || {
+        status: "Not Accepted"
+      };
+
+      currentJobTracking = tracking;
+      statusEl.textContent = tracking.status || "Not Accepted";
+      timeEl.textContent = tracking.completedTime
+        ? `Completed: ${tracking.completedTime}`
+        : tracking.workStarted
+          ? `Work started: ${tracking.workStarted}`
+          : tracking.arrivedOnSite
+            ? `Arrived: ${tracking.arrivedOnSite}`
+            : tracking.travelStarted
+              ? `Travel started: ${tracking.travelStarted}`
+              : tracking.acceptedTime
+                ? `Accepted: ${tracking.acceptedTime}`
+                : "";
+    }
+
+    async function performJobAction(jobAction) {
+      if (!selectedJob || !currentOperative) return;
+
+      const message = document.getElementById("trackingMessage");
+      message.innerHTML = "";
+
+      let notes = "";
+
+      if (jobAction === "pauseOvernight") {
+        notes = prompt(
+          "Please enter what has been completed today and what remains outstanding:"
+        ) || "";
+
+        if (!notes.trim()) {
+          message.innerHTML =
+            `<div class="error">Please provide continuation notes before pausing until tomorrow.</div>`;
+          return;
+        }
+      }
+
+      if (jobAction === "complete") {
+        const confirmed = confirm(
+          "Confirm that the job and all required paperwork are complete?"
+        );
+
+        if (!confirmed) return;
+      }
+
+      try {
+        const data = await apiPost({
+          action: "updateJobStatus",
+          name: currentOperative.name,
+          jobName: selectedJob.jobName,
+          folderId: selectedJob.folderId,
+          jobAction: jobAction,
+          notes: notes
+        });
+
+        jobTracking[selectedJob.folderId] = {
+          ...(jobTracking[selectedJob.folderId] || {}),
+          status: data.status,
+          lastUpdated: data.timestamp
+        };
+
+        if (jobAction === "accept") {
+          jobTracking[selectedJob.folderId].acceptedTime = data.timestamp;
+        } else if (jobAction === "startTravel") {
+          jobTracking[selectedJob.folderId].travelStarted = data.timestamp;
+        } else if (jobAction === "arriveOnSite") {
+          jobTracking[selectedJob.folderId].arrivedOnSite = data.timestamp;
+        } else if (jobAction === "startWork") {
+          jobTracking[selectedJob.folderId].workStarted = data.timestamp;
+        } else if (jobAction === "pauseOvernight") {
+          jobTracking[selectedJob.folderId].pausedOvernight = data.timestamp;
+        } else if (jobAction === "complete") {
+          jobTracking[selectedJob.folderId].completedTime = data.timestamp;
+        }
+
+        updateTrackingDisplay();
+
+        message.innerHTML =
+          `<div class="success">${safeText(data.status)} recorded at ${safeText(data.timestamp)}.</div>`;
+
+      } catch (error) {
+        message.innerHTML =
+          `<div class="error">${safeText(error.message)}</div>`;
+      }
+    }
+
+    async function submitDelayReport() {
+      if (!selectedJob || !currentOperative) return;
+
+      const reason = document.getElementById("delayReason").value;
+      const notes = document.getElementById("delayNotes").value.trim();
+      const message = document.getElementById("trackingMessage");
+
+      if (!reason) {
+        message.innerHTML =
+          `<div class="error">Please select a delay reason.</div>`;
+        return;
+      }
+
+      try {
+        const data = await apiPost({
+          action: "reportDelay",
+          name: currentOperative.name,
+          jobName: selectedJob.jobName,
+          folderId: selectedJob.folderId,
+          delayReason: reason,
+          notes: notes
+        });
+
+        document.getElementById("delayReason").value = "";
+        document.getElementById("delayNotes").value = "";
+
+        message.innerHTML =
+          `<div class="success">Delay reported at ${safeText(data.timestamp)}.</div>`;
+
+      } catch (error) {
+        message.innerHTML =
+          `<div class="error">${safeText(error.message)}</div>`;
+      }
     }
 
     const workflowSections = ["documentsPanel","riskAssessmentPanel","permitPanel","ramsPanel","workInstructionPanel","plantChecksPanel","evidencePanel","finishJobPanel"];
@@ -921,6 +1134,8 @@
       currentOperative = null;
       selectedJob = null;
       vanCheckComplete = false;
+      jobTracking = {};
+      currentJobTracking = null;
 
       document.getElementById("pinInput").value = "";
       document.getElementById("vanCheckNotes").value = "";
