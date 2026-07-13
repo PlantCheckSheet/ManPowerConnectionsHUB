@@ -316,6 +316,18 @@
       font-weight: 900;
     }
 
+    .workflow-panel { margin-top:16px; }
+    .workflow-list { display:grid; gap:12px; margin-top:16px; }
+    .workflow-step { display:grid; grid-template-columns:46px 1fr auto; gap:12px; align-items:center; padding:14px; border:1px solid #dce5ea; border-radius:16px; background:#f8fbfc; }
+    .workflow-step.complete { background:#f0fdf4; border-color:#bbf7d0; }
+    .workflow-icon { width:42px; height:42px; border-radius:14px; display:flex; align-items:center; justify-content:center; background:#e8f8fb; font-size:21px; }
+    .workflow-copy strong { display:block; color:var(--mpc-charcoal); font-size:14px; margin-bottom:3px; }
+    .workflow-copy span { display:block; color:var(--mpc-slate); font-size:12px; font-weight:700; }
+    .workflow-action { border:none; border-radius:12px; padding:10px 12px; font-weight:900; cursor:pointer; background:var(--mpc-cyan); color:#fff; white-space:nowrap; }
+    .workflow-action.secondary { background:#eef6f8; color:var(--mpc-charcoal); }
+    .section-intro { background:#eef9fb; border:1px solid #cceef3; border-radius:14px; padding:12px 14px; margin-bottom:14px; color:var(--mpc-charcoal); font-weight:800; font-size:13px; }
+    .form-grid { display:grid; grid-template-columns:1fr; gap:12px; }
+    @media (min-width:700px){ .form-grid { grid-template-columns:1fr 1fr; } }
     footer { text-align: center; padding: 18px; color: rgba(255,255,255,0.78); font-size: 12px; font-weight: 700; }
 
     @media (min-width: 700px) {
@@ -381,16 +393,6 @@
         <label for="vehicleReg">Vehicle Registration</label>
         <input id="vehicleReg" type="text" placeholder="Vehicle registration" />
 
-        <label for="vehicleMileage">Current Mileage</label>
-        <input
-          id="vehicleMileage"
-          type="number"
-          inputmode="numeric"
-          min="0"
-          step="1"
-          placeholder="Enter current mileage"
-        />
-
         <div id="vanChecks"></div>
 
         <label for="vanCheckNotes">Notes / Defects</label>
@@ -402,43 +404,34 @@
 
       <div id="jobAccessView" class="hidden" style="margin-top:16px;">
         <div class="panel">
-          <div class="job-header">
-            <div>
-              <h2 style="margin-bottom:4px;">Today&apos;s Jobs</h2>
-              <p style="margin:0;">Select a job to view its documents or upload photo evidence.</p>
-            </div>
-            <span class="pill" id="jobCountPill">0 Jobs</span>
-          </div>
-
+          <div class="job-header"><div><h2 style="margin-bottom:4px;">Today&apos;s Jobs</h2><p style="margin:0;">Select a job to open its daily paperwork and completion workflow.</p></div><span class="pill" id="jobCountPill">0 Jobs</span></div>
           <div id="jobsList" class="card-grid"></div>
         </div>
 
+        <div id="jobWorkflowPanel" class="panel workflow-panel hidden">
+          <div class="job-header"><div><h2 id="workflowJobTitle" style="margin-bottom:4px;">Job Workflow</h2><p id="workflowJobSubtitle" style="margin:0;">Complete the required sections for this job.</p></div><span class="pill" id="workflowProgressPill">1 of 8 Complete</span></div>
+          <div class="workflow-list">
+            <div class="workflow-step complete"><div class="workflow-icon">🚐</div><div class="workflow-copy"><strong>Vehicle Inspection</strong><span>Completed before job access</span></div><button class="workflow-action secondary" disabled>Complete</button></div>
+            <div class="workflow-step"><div class="workflow-icon">📂</div><div class="workflow-copy"><strong>Job Pack – Electrical / Civils</strong><span>View documents assigned to this job</span></div><button class="workflow-action" onclick="showWorkflowSection('documentsPanel')">Open</button></div>
+            <div class="workflow-step" id="stepRiskAssessment"><div class="workflow-icon">⚠️</div><div class="workflow-copy"><strong>Daily Risk Assessment</strong><span>Record site conditions and changes</span></div><button class="workflow-action" onclick="showWorkflowSection('riskAssessmentPanel')">Complete</button></div>
+            <div class="workflow-step" id="stepPermit"><div class="workflow-icon">⛏️</div><div class="workflow-copy"><strong>Permit to Dig</strong><span>Confirm service detection and controls</span></div><button class="workflow-action" onclick="showWorkflowSection('permitPanel')">Complete</button></div>
+            <div class="workflow-step" id="stepRams"><div class="workflow-icon">📄</div><div class="workflow-copy"><strong>RAMS – Read and Sign</strong><span>Confirm RAMS have been read</span></div><button class="workflow-action" onclick="showWorkflowSection('ramsPanel')">Open</button></div>
+            <div class="workflow-step" id="stepWorkInstruction"><div class="workflow-icon">📋</div><div class="workflow-copy"><strong>Work Instruction – Read and Sign</strong><span>Review the job-specific instruction</span></div><button class="workflow-action" onclick="showWorkflowSection('workInstructionPanel')">Open</button></div>
+            <div class="workflow-step" id="stepPlant"><div class="workflow-icon">🚜</div><div class="workflow-copy"><strong>Plant Check Sheets</strong><span>Record plant used onsite</span></div><button class="workflow-action" onclick="showWorkflowSection('plantChecksPanel')">Open</button></div>
+            <div class="workflow-step" id="stepEvidence"><div class="workflow-icon">📷</div><div class="workflow-copy"><strong>Completion Paperwork &amp; Photo Evidence</strong><span>Upload completion photos</span></div><button class="workflow-action" onclick="showWorkflowSection('evidencePanel')">Upload</button></div>
+            <div class="workflow-step" id="stepFinish"><div class="workflow-icon">✅</div><div class="workflow-copy"><strong>Final Job Sign-Off</strong><span>Confirm all work and paperwork are complete</span></div><button class="workflow-action" onclick="showWorkflowSection('finishJobPanel')">Finish</button></div>
+          </div>
+        </div>
+
         <div class="job-grid" style="margin-top:16px;">
-          <div id="documentsPanel" class="panel hidden">
-            <h2>Assigned Documents</h2>
-            <div id="documentsSelectedJob" class="pill" style="margin-bottom:14px;"></div>
-            <p id="documentsIntro">Only documents linked to the selected job are shown.</p>
-            <div id="documentList"></div>
-          </div>
-
-          <div id="evidencePanel" class="panel hidden">
-            <h2>Upload Photo Evidence</h2>
-            <div id="evidenceSelectedJob" class="pill" style="margin-bottom:14px;"></div>
-            <p>Photos will upload to the Google Drive folder linked to the selected job.</p>
-
-            <label for="evidencePhotos">Photos</label>
-            <label for="evidencePhotos">Photos</label>
-<input id="evidencePhotos"
-       type="file"
-       accept="image/*"
-       multiple />
-
-            <label for="evidenceNotes">Completion Notes</label>
-            <textarea id="evidenceNotes" placeholder="Example: Connection completed, reinstatement finished, chamber photos uploaded..."></textarea>
-
-            <button id="evidenceSubmitButton" class="button" onclick="submitEvidence()">Submit Evidence</button>
-            <div id="evidenceMessage"></div>
-          </div>
+          <div id="documentsPanel" class="panel hidden"><h2>Job Pack – Electrical / Civils</h2><div id="documentsSelectedJob" class="pill" style="margin-bottom:14px;"></div><p id="documentsIntro">Only documents linked to the selected job are shown.</p><div id="documentList"></div></div>
+          <div id="riskAssessmentPanel" class="panel hidden"><h2>Daily Risk Assessment</h2><div class="section-intro">Complete before work starts and again if site conditions change.</div><div class="form-grid"><div><label for="riskWeather">Weather Conditions</label><select id="riskWeather"><option value="">Select...</option><option>Dry</option><option>Wet</option><option>High Winds</option><option>Snow / Ice</option></select></div><div><label for="riskServices">Underground Services Located?</label><select id="riskServices"><option value="">Select...</option><option>Yes</option><option>No</option><option>Not Applicable</option></select></div></div><label for="riskNotes">Hazards / Controls / Comments</label><textarea id="riskNotes"></textarea><button class="button" onclick="saveLocalWorkflowStep('riskAssessment')">Save Risk Assessment</button><div id="riskAssessmentMessage"></div></div>
+          <div id="permitPanel" class="panel hidden"><h2>Permit to Dig</h2><div class="section-intro">Confirm service-location and excavation controls.</div><div class="form-grid"><div><label for="permitNumber">Permit Number</label><input id="permitNumber" type="text"></div><div><label for="permitScan">CAT &amp; Genny Scan Completed?</label><select id="permitScan"><option value="">Select...</option><option>Yes</option><option>No</option></select></div><div><label for="permitMarked">Services Marked?</label><select id="permitMarked"><option value="">Select...</option><option>Yes</option><option>No</option></select></div></div><label for="permitNotes">Permit Notes</label><textarea id="permitNotes"></textarea><button class="button" onclick="saveLocalWorkflowStep('permit')">Save Permit to Dig</button><div id="permitMessage"></div></div>
+          <div id="ramsPanel" class="panel hidden"><h2>RAMS – Read and Sign</h2><div class="section-intro">Open the RAMS from the job pack and confirm below.</div><label><input id="ramsConfirm" type="checkbox" style="width:auto;margin-right:8px;"> I have read and understood the RAMS.</label><label for="ramsSignature">Full Name</label><input id="ramsSignature" type="text"><button class="button" onclick="saveLocalWorkflowStep('rams')">Confirm RAMS Sign-Off</button><div id="ramsMessage"></div></div>
+          <div id="workInstructionPanel" class="panel hidden"><h2>Work Instruction – Read and Sign</h2><div class="section-intro">Review the work instruction in the job pack.</div><label><input id="workInstructionConfirm" type="checkbox" style="width:auto;margin-right:8px;"> I have read and understood the work instruction.</label><label for="workInstructionSignature">Full Name</label><input id="workInstructionSignature" type="text"><button class="button" onclick="saveLocalWorkflowStep('workInstruction')">Confirm Work Instruction</button><div id="workInstructionMessage"></div></div>
+          <div id="plantChecksPanel" class="panel hidden"><h2>Plant Check Sheets</h2><div class="section-intro">Select the plant used. Detailed checklists can be added when the client supplies the final forms.</div><label for="plantTypeSelect">Plant / Equipment</label><select id="plantTypeSelect"><option value="">Select...</option><option>Excavator</option><option>Dumper</option><option>Generator</option><option>Petrol Cut-Off Saw</option><option>CAT &amp; Genny</option><option>Cable Winch</option><option>Other</option></select><label for="plantIdentifier">Plant ID / Serial Number</label><input id="plantIdentifier" type="text"><label for="plantNotes">Notes / Defects</label><textarea id="plantNotes"></textarea><button class="button" onclick="saveLocalWorkflowStep('plant')">Save Plant Check</button><div id="plantMessage"></div></div>
+          <div id="evidencePanel" class="panel hidden"><h2>Completion Paperwork &amp; Photo Evidence</h2><div id="evidenceSelectedJob" class="pill" style="margin-bottom:14px;"></div><p>Photos upload to the logged-in operative&apos;s Photo Evidence folder.</p><label for="evidencePhotos">Photos</label><input id="evidencePhotos" type="file" accept="image/*" multiple><label for="evidenceNotes">Completion Notes</label><textarea id="evidenceNotes"></textarea><button id="evidenceSubmitButton" class="button" onclick="submitEvidence()">Submit Evidence</button><div id="evidenceMessage"></div></div>
+          <div id="finishJobPanel" class="panel hidden"><h2>Final Job Sign-Off</h2><div class="section-intro">Confirm all work, paperwork and evidence are complete.</div><label><input id="finishWorkComplete" type="checkbox" style="width:auto;margin-right:8px;"> Physical work completed.</label><label><input id="finishPaperworkComplete" type="checkbox" style="width:auto;margin-right:8px;"> Required paperwork completed.</label><label><input id="finishPhotosComplete" type="checkbox" style="width:auto;margin-right:8px;"> Completion photos uploaded.</label><label for="finishSignature">Full Name</label><input id="finishSignature" type="text"><button class="button" onclick="saveLocalWorkflowStep('finish')">Complete Job</button><div id="finishMessage"></div></div>
         </div>
       </div>
     </section>
@@ -662,6 +655,14 @@
       renderJobs();
     }
 
+    const workflowSections = ["documentsPanel","riskAssessmentPanel","permitPanel","ramsPanel","workInstructionPanel","plantChecksPanel","evidencePanel","finishJobPanel"];
+    const workflowState = {riskAssessment:false,permit:false,rams:false,workInstruction:false,plant:false,evidence:false,finish:false};
+    function hideWorkflowSections(){workflowSections.forEach(id=>{const p=document.getElementById(id);if(p)p.classList.add("hidden");});}
+    function showWorkflowSection(id){if(!selectedJob)return;hideWorkflowSections();const p=document.getElementById(id);if(p){p.classList.remove("hidden");p.scrollIntoView({behavior:"smooth",block:"start"});}if(id==="documentsPanel"){document.getElementById("documentsSelectedJob").textContent=`${selectedJob.jobName||"Unnamed Job"} • ${selectedJob.site||"Site not entered"}`;renderDocuments();}if(id==="evidencePanel"){document.getElementById("evidenceSelectedJob").textContent=`${selectedJob.jobName||"Unnamed Job"} • ${selectedJob.site||"Site not entered"}`;}}
+    function openJobWorkflow(index){selectedJob=currentOperative.jobs[index];document.getElementById("jobWorkflowPanel").classList.remove("hidden");document.getElementById("workflowJobTitle").textContent=selectedJob.jobName||"Unnamed Job";document.getElementById("workflowJobSubtitle").textContent=`${selectedJob.site||"Site not entered"} • ${selectedJob.date||""}`;hideWorkflowSections();updateWorkflowProgress();document.getElementById("jobWorkflowPanel").scrollIntoView({behavior:"smooth",block:"start"});}
+    function updateWorkflowProgress(){const completed=1+Object.values(workflowState).filter(Boolean).length;document.getElementById("workflowProgressPill").textContent=`${completed} of 8 Complete`;const map={riskAssessment:"stepRiskAssessment",permit:"stepPermit",rams:"stepRams",workInstruction:"stepWorkInstruction",plant:"stepPlant",evidence:"stepEvidence",finish:"stepFinish"};Object.entries(map).forEach(([k,id])=>{const e=document.getElementById(id);if(e)e.classList.toggle("complete",workflowState[k]);});}
+    function saveLocalWorkflowStep(step){const checks={riskAssessment:()=>riskWeather.value&&riskServices.value,permit:()=>permitNumber.value.trim()&&permitScan.value&&permitMarked.value,rams:()=>ramsConfirm.checked&&ramsSignature.value.trim(),workInstruction:()=>workInstructionConfirm.checked&&workInstructionSignature.value.trim(),plant:()=>plantTypeSelect.value&&plantIdentifier.value.trim(),finish:()=>finishWorkComplete.checked&&finishPaperworkComplete.checked&&finishPhotosComplete.checked&&finishSignature.value.trim()};const ids={riskAssessment:"riskAssessmentMessage",permit:"permitMessage",rams:"ramsMessage",workInstruction:"workInstructionMessage",plant:"plantMessage",finish:"finishMessage"};const m=document.getElementById(ids[step]);if(checks[step]&&!checks[step]()){m.innerHTML='<div class="error">Please complete all required fields before saving.</div>';return;}workflowState[step]=true;updateWorkflowProgress();m.innerHTML='<div class="success">Saved in this redesigned portal preview. Permanent Google Sheet saving will be connected when the final client forms are confirmed.</div>'; }
+
     function renderJobs() {
       const jobs = currentOperative.jobs || [];
       const list = document.getElementById("jobsList");
@@ -689,8 +690,8 @@
           <span class="pill">${safeText(job.site || "Site not entered")}</span>
           <h3 style="margin-top:12px;">${safeText(job.jobName || "Unnamed Job")}</h3>
           <p>${safeText(job.date || "")}</p>
-          <button class="button" onclick="openJobDocuments(${index})">Open Job Pack</button>
-          <button class="button secondary" onclick="openJobEvidence(${index})">Upload Evidence</button>
+          <button class="button" onclick="openJobWorkflow(${index})">Open Daily Workflow</button>
+          <button class="button secondary" onclick="openJobEvidence(${index})">Quick Upload Evidence</button>
         </div>
       `).join("");
     }
@@ -766,8 +767,6 @@
       message.innerHTML = "";
 
       const vehicleReg = document.getElementById("vehicleReg").value.trim();
-      const mileageValue = document.getElementById("vehicleMileage").value.trim();
-      const mileage = Number(mileageValue);
       const notes = document.getElementById("vanCheckNotes").value.trim();
       const results = [];
       let hasDefect = false;
@@ -775,18 +774,6 @@
       if (!vehicleReg) {
         message.innerHTML =
           `<div class="error">Please enter the vehicle registration.</div>`;
-        return;
-      }
-
-      if (!mileageValue) {
-        message.innerHTML =
-          `<div class="error">Please enter the current vehicle mileage.</div>`;
-        return;
-      }
-
-      if (!Number.isInteger(mileage) || mileage < 0) {
-        message.innerHTML =
-          `<div class="error">Please enter a valid whole-number mileage.</div>`;
         return;
       }
 
@@ -825,7 +812,7 @@
           action: "submitVanCheck",
           name: currentOperative.name,
           vehicle: vehicleReg,
-          mileage: mileage,
+          mileage: "",
           notes: JSON.stringify({
             notes: notes,
             checks: results
@@ -917,6 +904,8 @@
 
         document.getElementById("evidencePhotos").value = "";
         document.getElementById("evidenceNotes").value = "";
+        workflowState.evidence = true;
+        updateWorkflowProgress();
 
       } catch (error) {
         message.innerHTML =
@@ -934,7 +923,6 @@
       vanCheckComplete = false;
 
       document.getElementById("pinInput").value = "";
-      document.getElementById("vehicleMileage").value = "";
       document.getElementById("vanCheckNotes").value = "";
       document.getElementById("evidenceNotes").value = "";
       document.getElementById("evidencePhotos").value = "";
