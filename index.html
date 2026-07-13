@@ -467,25 +467,45 @@
             </div>
 
             <div class="delay-box">
-              <label for="delayReason">Report Lost Time / Delay</label>
-              <select id="delayReason">
-                <option value="">Select reason...</option>
-                <option>Plant Breakdown</option>
-                <option>Awaiting Materials</option>
-                <option>Awaiting Traffic Management</option>
-                <option>Awaiting Access</option>
-                <option>Awaiting Instructions</option>
-                <option>Utility Conflict</option>
-                <option>Weather</option>
-                <option>Permit Delay</option>
-                <option>Customer Delay</option>
-                <option>Other</option>
-              </select>
+              <h3 style="margin-bottom:6px;">Lost Time / Delay Timer</h3>
+              <p style="margin-top:0;">Start the timer when the delay begins and end it once the issue is resolved.</p>
 
-              <label for="delayNotes">Delay Notes</label>
-              <textarea id="delayNotes" placeholder="Explain the delay and any action taken..."></textarea>
+              <div id="delayInactiveView">
+                <label for="delayReason">Delay Reason</label>
+                <select id="delayReason">
+                  <option value="">Select reason...</option>
+                  <option>Plant Breakdown</option>
+                  <option>Awaiting Materials</option>
+                  <option>Awaiting Traffic Management</option>
+                  <option>Awaiting Access</option>
+                  <option>Awaiting Instructions</option>
+                  <option>Utility Conflict</option>
+                  <option>Weather</option>
+                  <option>Permit Delay</option>
+                  <option>Customer Delay</option>
+                  <option>Other</option>
+                </select>
 
-              <button class="button secondary" onclick="submitDelayReport()">Report Delay</button>
+                <label for="delayNotes">Start Notes</label>
+                <textarea id="delayNotes" placeholder="Explain the cause of the delay..."></textarea>
+
+                <button id="startDelayButton" class="button secondary" onclick="startDelayTimer()">Start Delay</button>
+              </div>
+
+              <div id="delayActiveView" class="hidden">
+                <div class="completion-banner" style="background:#fef3c7;color:#92400e;">
+                  <strong>Delay Active</strong><br>
+                  <span id="activeDelayReason"></span><br>
+                  Started: <span id="activeDelayStarted"></span><br>
+                  Elapsed: <span id="activeDelayElapsed">00:00:00</span>
+                </div>
+
+                <label for="delayEndNotes">End Notes</label>
+                <textarea id="delayEndNotes" placeholder="Explain how the issue was resolved..."></textarea>
+
+                <button id="endDelayButton" class="button danger" onclick="endDelayTimer()">End Delay</button>
+              </div>
+
               <div id="trackingMessage"></div>
             </div>
           </div>
@@ -546,6 +566,9 @@
     let jobTracking = {};
     let currentJobTracking = null;
     let jobActionInProgress = false;
+    let activeDelay = null;
+    let delayTimerInterval = null;
+    let delayActionInProgress = false;
 
     async function apiPost(payload) {
       const response = await fetch(WEB_APP_URL, {
@@ -818,6 +841,9 @@
           message.innerHTML =
             `<div class="error">Please provide continuation notes before pausing until tomorrow.</div>`;
           jobActionInProgress = false;
+      activeDelay = null;
+      delayActionInProgress = false;
+      stopDelayTicker();
           setJobActionButtonsDisabled(false);
           return;
         }
@@ -827,6 +853,14 @@
       let completionNotes = "";
 
       if (jobAction === "complete") {
+        if (activeDelay) {
+          message.innerHTML =
+            `<div class="error">End the active delay before completing the job.</div>`;
+          jobActionInProgress = false;
+          setJobActionButtonsDisabled(false);
+          return;
+        }
+
         const confirmed = confirm(
           "Confirm that the job and all required paperwork are complete?"
         );
@@ -915,12 +949,134 @@
       }
     }
 
-    async function submitDelayReport() {
-      if (!selectedJob || !currentOperative) return;
+    function formatElapsedDuration(milliseconds) {
+      const totalSeconds = Math.max(
+        0,
+        Math.floor(milliseconds / 1000)
+      );
 
-      const reason = document.getElementById("delayReason").value;
-      const notes = document.getElementById("delayNotes").value.trim();
-      const message = document.getElementById("trackingMessage");
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      return [
+        String(hours).padStart(2, "0"),
+        String(minutes).padStart(2, "0"),
+        String(seconds).padStart(2, "0")
+      ].join(":");
+    }
+
+    function stopDelayTicker() {
+      if (delayTimerInterval) {
+        clearInterval(delayTimerInterval);
+        delayTimerInterval = null;
+      }
+    }
+
+    function updateDelayTicker() {
+      if (!activeDelay || !activeDelay.startTimestamp) {
+        return;
+      }
+
+      const startTime = new Date(
+        activeDelay.startTimestamp
+      ).getTime();
+
+      document.getElementById(
+        "activeDelayElapsed"
+      ).textContent = formatElapsedDuration(
+        Date.now() - startTime
+      );
+    }
+
+    function renderDelayState() {
+      const inactiveView = document.getElementById(
+        "delayInactiveView"
+      );
+      const activeView = document.getElementById(
+        "delayActiveView"
+      );
+
+      if (activeDelay) {
+        inactiveView.classList.add("hidden");
+        activeView.classList.remove("hidden");
+
+        document.getElementById(
+          "activeDelayReason"
+        ).textContent = activeDelay.reason || "";
+
+        document.getElementById(
+          "activeDelayStarted"
+        ).textContent = activeDelay.startDisplay || "";
+
+        stopDelayTicker();
+        updateDelayTicker();
+
+        delayTimerInterval = setInterval(
+          updateDelayTicker,
+          1000
+        );
+      } else {
+        stopDelayTicker();
+        activeView.classList.add("hidden");
+        inactiveView.classList.remove("hidden");
+
+        document.getElementById(
+          "activeDelayElapsed"
+        ).textContent = "00:00:00";
+      }
+    }
+
+    async function loadActiveDelay() {
+      if (!selectedJob || !currentOperative) {
+        return;
+      }
+
+      try {
+        const data = await apiPost({
+          action: "getActiveDelay",
+          name: currentOperative.name,
+          folderId: selectedJob.folderId
+        });
+
+        activeDelay = data.active ? {
+          delayId: data.delayId,
+          reason: data.reason,
+          notes: data.notes,
+          startTimestamp: data.startTimestamp,
+          startDisplay: data.startDisplay
+        } : null;
+
+        renderDelayState();
+      } catch (error) {
+        document.getElementById(
+          "trackingMessage"
+        ).innerHTML =
+          `<div class="error">${safeText(error.message)}</div>`;
+      }
+    }
+
+    async function startDelayTimer() {
+      if (
+        !selectedJob ||
+        !currentOperative ||
+        delayActionInProgress ||
+        activeDelay
+      ) {
+        return;
+      }
+
+      const reason = document.getElementById(
+        "delayReason"
+      ).value;
+
+      const notes = document.getElementById(
+        "delayNotes"
+      ).value.trim();
+
+      const message = document.getElementById(
+        "trackingMessage"
+      );
 
       if (!reason) {
         message.innerHTML =
@@ -928,9 +1084,17 @@
         return;
       }
 
+      delayActionInProgress = true;
+      document.getElementById(
+        "startDelayButton"
+      ).disabled = true;
+      document.getElementById(
+        "startDelayButton"
+      ).textContent = "Starting...";
+
       try {
         const data = await apiPost({
-          action: "reportDelay",
+          action: "startDelay",
           name: currentOperative.name,
           jobName: selectedJob.jobName,
           folderId: selectedJob.folderId,
@@ -938,17 +1102,102 @@
           notes: notes
         });
 
+        activeDelay = {
+          delayId: data.delayId,
+          reason: data.reason,
+          startTimestamp: data.startTimestamp,
+          startDisplay: data.startDisplay
+        };
+
         document.getElementById("delayReason").value = "";
         document.getElementById("delayNotes").value = "";
 
-        message.innerHTML =
-          `<div class="success">Delay reported at ${safeText(data.timestamp)}.</div>`;
+        renderDelayState();
 
+        message.innerHTML =
+          `<div class="success">Delay timer started at ${safeText(data.startDisplay)}.</div>`;
       } catch (error) {
         message.innerHTML =
           `<div class="error">${safeText(error.message)}</div>`;
+      } finally {
+        delayActionInProgress = false;
+        document.getElementById(
+          "startDelayButton"
+        ).disabled = false;
+        document.getElementById(
+          "startDelayButton"
+        ).textContent = "Start Delay";
       }
     }
+
+    async function endDelayTimer() {
+      if (
+        !selectedJob ||
+        !currentOperative ||
+        delayActionInProgress ||
+        !activeDelay
+      ) {
+        return;
+      }
+
+      const notes = document.getElementById(
+        "delayEndNotes"
+      ).value.trim();
+
+      const message = document.getElementById(
+        "trackingMessage"
+      );
+
+      const confirmed = confirm(
+        "End the current delay timer?"
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      delayActionInProgress = true;
+      document.getElementById(
+        "endDelayButton"
+      ).disabled = true;
+      document.getElementById(
+        "endDelayButton"
+      ).textContent = "Ending...";
+
+      try {
+        const data = await apiPost({
+          action: "endDelay",
+          name: currentOperative.name,
+          folderId: selectedJob.folderId,
+          notes: notes
+        });
+
+        activeDelay = null;
+        document.getElementById(
+          "delayEndNotes"
+        ).value = "";
+
+        renderDelayState();
+
+        message.innerHTML =
+          `<div class="success">
+            Delay ended at ${safeText(data.endDisplay)}.<br>
+            Recorded duration: ${safeText(data.durationText)}.
+          </div>`;
+      } catch (error) {
+        message.innerHTML =
+          `<div class="error">${safeText(error.message)}</div>`;
+      } finally {
+        delayActionInProgress = false;
+        document.getElementById(
+          "endDelayButton"
+        ).disabled = false;
+        document.getElementById(
+          "endDelayButton"
+        ).textContent = "End Delay";
+      }
+    }
+
 
     const workflowSections = ["documentsPanel","riskAssessmentPanel","permitPanel","ramsPanel","workInstructionPanel","plantChecksPanel","evidencePanel","finishJobPanel"];
     const workflowState = {riskAssessment:false,permit:false,rams:false,workInstruction:false,plant:false,evidence:false,finish:false};
