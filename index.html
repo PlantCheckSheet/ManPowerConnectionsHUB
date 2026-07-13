@@ -381,6 +381,16 @@
         <label for="vehicleReg">Vehicle Registration</label>
         <input id="vehicleReg" type="text" placeholder="Vehicle registration" />
 
+        <label for="vehicleMileage">Current Mileage</label>
+        <input
+          id="vehicleMileage"
+          type="number"
+          inputmode="numeric"
+          min="0"
+          step="1"
+          placeholder="Enter current mileage"
+        />
+
         <div id="vanChecks"></div>
 
         <label for="vanCheckNotes">Notes / Defects</label>
@@ -752,6 +762,8 @@
       message.innerHTML = "";
 
       const vehicleReg = document.getElementById("vehicleReg").value.trim();
+      const mileageValue = document.getElementById("vehicleMileage").value.trim();
+      const mileage = Number(mileageValue);
       const notes = document.getElementById("vanCheckNotes").value.trim();
       const results = [];
       let hasDefect = false;
@@ -759,6 +771,18 @@
       if (!vehicleReg) {
         message.innerHTML =
           `<div class="error">Please enter the vehicle registration.</div>`;
+        return;
+      }
+
+      if (!mileageValue) {
+        message.innerHTML =
+          `<div class="error">Please enter the current vehicle mileage.</div>`;
+        return;
+      }
+
+      if (!Number.isInteger(mileage) || mileage < 0) {
+        message.innerHTML =
+          `<div class="error">Please enter a valid whole-number mileage.</div>`;
         return;
       }
 
@@ -797,7 +821,7 @@
           action: "submitVanCheck",
           name: currentOperative.name,
           vehicle: vehicleReg,
-          mileage: "",
+          mileage: mileage,
           notes: JSON.stringify({
             notes: notes,
             checks: results
@@ -906,6 +930,7 @@
       vanCheckComplete = false;
 
       document.getElementById("pinInput").value = "";
+      document.getElementById("vehicleMileage").value = "";
       document.getElementById("vanCheckNotes").value = "";
       document.getElementById("evidenceNotes").value = "";
       document.getElementById("evidencePhotos").value = "";
