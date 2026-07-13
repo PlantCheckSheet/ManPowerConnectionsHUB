@@ -762,6 +762,25 @@
               : tracking.acceptedTime
                 ? `Accepted: ${tracking.acceptedTime}`
                 : "";
+
+      const message = document.getElementById("trackingMessage");
+
+      if (
+        message &&
+        tracking.completionPdfUrl &&
+        tracking.status === "Completed"
+      ) {
+        message.innerHTML =
+          `<div class="success">
+            This job is complete.<br><br>
+            <a href="${safeText(tracking.completionPdfUrl)}"
+               target="_blank"
+               rel="noopener"
+               style="color:#166534;font-weight:900;">
+              Open Completion PDF
+            </a>
+          </div>`;
+      }
     }
 
     async function performJobAction(jobAction) {
@@ -784,12 +803,29 @@
         }
       }
 
+      let completionSignature = "";
+      let completionNotes = "";
+
       if (jobAction === "complete") {
         const confirmed = confirm(
           "Confirm that the job and all required paperwork are complete?"
         );
 
         if (!confirmed) return;
+
+        completionSignature = prompt(
+          "Enter your full name as your completion signature:"
+        ) || "";
+
+        if (!completionSignature.trim()) {
+          message.innerHTML =
+            `<div class="error">A completion signature or full name is required.</div>`;
+          return;
+        }
+
+        completionNotes = prompt(
+          "Enter final completion notes, including any outstanding matters:"
+        ) || "";
       }
 
       try {
@@ -799,7 +835,9 @@
           jobName: selectedJob.jobName,
           folderId: selectedJob.folderId,
           jobAction: jobAction,
-          notes: notes
+          notes: notes,
+          completionSignature: completionSignature,
+          completionNotes: completionNotes
         });
 
         jobTracking[selectedJob.folderId] = {
@@ -820,12 +858,27 @@
           jobTracking[selectedJob.folderId].pausedOvernight = data.timestamp;
         } else if (jobAction === "complete") {
           jobTracking[selectedJob.folderId].completedTime = data.timestamp;
+          jobTracking[selectedJob.folderId].completionPdfUrl =
+            data.pdfUrl || "";
         }
 
         updateTrackingDisplay();
 
-        message.innerHTML =
-          `<div class="success">${safeText(data.status)} recorded at ${safeText(data.timestamp)}.</div>`;
+        if (jobAction === "complete" && data.pdfUrl) {
+          message.innerHTML =
+            `<div class="success">
+              Job completed at ${safeText(data.timestamp)}.<br><br>
+              <a href="${safeText(data.pdfUrl)}"
+                 target="_blank"
+                 rel="noopener"
+                 style="color:#166534;font-weight:900;">
+                Open Completion PDF
+              </a>
+            </div>`;
+        } else {
+          message.innerHTML =
+            `<div class="success">${safeText(data.status)} recorded at ${safeText(data.timestamp)}.</div>`;
+        }
 
       } catch (error) {
         message.innerHTML =
