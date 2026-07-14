@@ -387,6 +387,16 @@
     .acknowledgement-box{margin-top:12px;padding-top:12px;border-top:1px solid #dce5ea}
     .acknowledged-label{display:inline-block;padding:8px 10px;border-radius:999px;background:#dcfce7;color:#166534;font-size:12px;font-weight:900}
 
+    .document-status-row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #e6eef2}
+    .document-status-row:last-child{border-bottom:none}
+    .document-status-name{font-weight:800;color:var(--mpc-charcoal)}
+    .document-status-pill{display:inline-block;padding:7px 10px;border-radius:999px;font-size:11px;font-weight:900}
+    .document-status-pill.pending{background:#fee2e2;color:#991b1b}
+    .document-status-pill.draft{background:#fef3c7;color:#92400e}
+    .document-status-pill.complete{background:#dcfce7;color:#166534}
+    .document-hub-item.required{border-left:5px solid #f59e0b}
+    .document-hub-item.done{border-left:5px solid #16a34a}
+
     footer { text-align: center; padding: 18px; color: rgba(255,255,255,0.78); font-size: 12px; font-weight: 700; }
 
     @media (min-width: 700px) {
@@ -478,7 +488,7 @@
         </div>
 
         <div id="jobWorkflowPanel" class="panel workflow-panel hidden">
-          <div class="job-header"><div><h2 id="workflowJobTitle" style="margin-bottom:4px;">Job Workflow</h2><p id="workflowJobSubtitle" style="margin:0;">Complete the required sections for this job.</p></div><span class="pill" id="workflowProgressPill">1 of 8 Complete</span></div>
+          <div class="job-header"><div><h2 id="workflowJobTitle" style="margin-bottom:4px;">Job Workflow</h2><p id="workflowJobSubtitle" style="margin:0;">Complete the required sections for this job.</p></div><span class="pill" id="workflowProgressPill">Pre-start documents pending</span></div>
           <div class="tracking-card">
             <div class="job-header" style="margin-bottom:0;">
               <div>
@@ -545,11 +555,7 @@
 
           <div class="workflow-list">
             <div class="workflow-step complete"><div class="workflow-icon">🚐</div><div class="workflow-copy"><strong>Vehicle Inspection</strong><span>Completed before job access</span></div><button class="workflow-action secondary" disabled>Complete</button></div>
-            <div class="workflow-step"><div class="workflow-icon">📂</div><div class="workflow-copy"><strong>Document &amp; Forms Hub</strong><span>Open documents or complete recognised forms live</span></div><button class="workflow-action" onclick="showWorkflowSection('documentsPanel')">Open</button></div>
-            <div class="workflow-step" id="stepRiskAssessment"><div class="workflow-icon">⚠️</div><div class="workflow-copy"><strong>Daily Risk Assessment</strong><span>Record site conditions and changes</span></div><button class="workflow-action" onclick="showWorkflowSection('riskAssessmentPanel')">Complete</button></div>
-            <div class="workflow-step" id="stepPermit"><div class="workflow-icon">⛏️</div><div class="workflow-copy"><strong>Permit to Dig</strong><span>Confirm service detection and controls</span></div><button class="workflow-action" onclick="showWorkflowSection('permitPanel')">Complete</button></div>
-            <div class="workflow-step" id="stepRams"><div class="workflow-icon">📄</div><div class="workflow-copy"><strong>RAMS – Read and Sign</strong><span>Confirm RAMS have been read</span></div><button class="workflow-action" onclick="showWorkflowSection('ramsPanel')">Open</button></div>
-            <div class="workflow-step" id="stepWorkInstruction"><div class="workflow-icon">📋</div><div class="workflow-copy"><strong>Work Instruction – Read and Sign</strong><span>Review the job-specific instruction</span></div><button class="workflow-action" onclick="showWorkflowSection('workInstructionPanel')">Open</button></div>
+            <div class="workflow-step"><div class="workflow-icon">📂</div><div class="workflow-copy"><strong>Document &amp; Forms Hub</strong><span>Read, acknowledge and complete all required paperwork</span></div><button class="workflow-action" onclick="showWorkflowSection('documentsPanel')">Open</button></div><div class="workflow-copy"><strong>Daily Risk Assessment</strong><span>Record site conditions and changes</span></div><button class="workflow-action" onclick="showWorkflowSection('riskAssessmentPanel')">Complete</button></div><div class="workflow-copy"><strong>Permit to Dig</strong><span>Confirm service detection and controls</span></div><button class="workflow-action" onclick="showWorkflowSection('permitPanel')">Complete</button></div><div class="workflow-copy"><strong>RAMS – Read and Sign</strong><span>Confirm RAMS have been read</span></div><button class="workflow-action" onclick="showWorkflowSection('ramsPanel')">Open</button></div><div class="workflow-copy"><strong>Work Instruction – Read and Sign</strong><span>Review the job-specific instruction</span></div><button class="workflow-action" onclick="showWorkflowSection('workInstructionPanel')">Open</button></div>
             <div class="workflow-step" id="stepPlant"><div class="workflow-icon">🚜</div><div class="workflow-copy"><strong>Plant Check Sheets</strong><span>Record plant used onsite</span></div><button class="workflow-action" onclick="showWorkflowSection('plantChecksPanel')">Open</button></div>
             <div class="workflow-step" id="stepEvidence"><div class="workflow-icon">📷</div><div class="workflow-copy"><strong>Completion Paperwork &amp; Photo Evidence</strong><span>Upload completion photos</span></div><button class="workflow-action" onclick="showWorkflowSection('evidencePanel')">Upload</button></div>
             <div class="workflow-step" id="stepFinish"><div class="workflow-icon">✅</div><div class="workflow-copy"><strong>Final Job Sign-Off</strong><span>Confirm all work and paperwork are complete</span></div><button class="workflow-action" onclick="showWorkflowSection('finishJobPanel')">Finish</button></div>
@@ -557,11 +563,7 @@
         </div>
 
         <div class="job-grid" style="margin-top:16px;">
-          <div id="documentsPanel" class="panel hidden"><h2>Document &amp; Forms Hub</h2><div id="documentsSelectedJob" class="pill" style="margin-bottom:14px;"></div><div id="documentGateBanner" class="required-document-banner pending">Required documents are being checked...</div><p id="documentsIntro">Only documents linked to the selected job are shown.</p><div id="documentList"></div></div>
-          <div id="riskAssessmentPanel" class="panel hidden"><h2>Daily Risk Assessment</h2><div class="section-intro">Complete before work starts and again if site conditions change.</div><div class="form-grid"><div><label for="riskWeather">Weather Conditions</label><select id="riskWeather"><option value="">Select...</option><option>Dry</option><option>Wet</option><option>High Winds</option><option>Snow / Ice</option></select></div><div><label for="riskServices">Underground Services Located?</label><select id="riskServices"><option value="">Select...</option><option>Yes</option><option>No</option><option>Not Applicable</option></select></div></div><label for="riskNotes">Hazards / Controls / Comments</label><textarea id="riskNotes"></textarea><button class="button" onclick="saveLocalWorkflowStep('riskAssessment')">Save Risk Assessment</button><div id="riskAssessmentMessage"></div></div>
-          <div id="permitPanel" class="panel hidden"><h2>Permit to Dig</h2><div class="section-intro">Confirm service-location and excavation controls.</div><div class="form-grid"><div><label for="permitNumber">Permit Number</label><input id="permitNumber" type="text"></div><div><label for="permitScan">CAT &amp; Genny Scan Completed?</label><select id="permitScan"><option value="">Select...</option><option>Yes</option><option>No</option></select></div><div><label for="permitMarked">Services Marked?</label><select id="permitMarked"><option value="">Select...</option><option>Yes</option><option>No</option></select></div></div><label for="permitNotes">Permit Notes</label><textarea id="permitNotes"></textarea><button class="button" onclick="saveLocalWorkflowStep('permit')">Save Permit to Dig</button><div id="permitMessage"></div></div>
-          <div id="ramsPanel" class="panel hidden"><h2>RAMS – Read and Sign</h2><div class="section-intro">Open the RAMS from the job pack and confirm below.</div><label><input id="ramsConfirm" type="checkbox" style="width:auto;margin-right:8px;"> I have read and understood the RAMS.</label><label for="ramsSignature">Full Name</label><input id="ramsSignature" type="text"><button class="button" onclick="saveLocalWorkflowStep('rams')">Confirm RAMS Sign-Off</button><div id="ramsMessage"></div></div>
-          <div id="workInstructionPanel" class="panel hidden"><h2>Work Instruction – Read and Sign</h2><div class="section-intro">Review the work instruction in the job pack.</div><label><input id="workInstructionConfirm" type="checkbox" style="width:auto;margin-right:8px;"> I have read and understood the work instruction.</label><label for="workInstructionSignature">Full Name</label><input id="workInstructionSignature" type="text"><button class="button" onclick="saveLocalWorkflowStep('workInstruction')">Confirm Work Instruction</button><div id="workInstructionMessage"></div></div>
+          <div id="documentsPanel" class="panel hidden"><h2>Document &amp; Forms Hub</h2><div id="documentsSelectedJob" class="pill" style="margin-bottom:14px;"></div><div id="documentGateBanner" class="required-document-banner pending">Required documents are being checked...</div><div id="documentProgressSummary" class="form-card"></div><p id="documentsIntro">Only documents linked to the selected job are shown.</p><div id="documentList"></div></div>
           <div id="liveFormPanel" class="panel hidden">
             <div class="job-header">
               <div>
@@ -630,6 +632,8 @@
       requiredCount: 0
     };
     let documentAcknowledgementInProgress = false;
+      currentJobFormStatuses = {};
+    let currentJobFormStatuses = {};
 
     async function apiPost(payload) {
       const response = await fetch(WEB_APP_URL, {
@@ -2120,6 +2124,8 @@
         currentLiveFormStatus =
           response.status || "";
 
+        await loadJobFormStatuses();
+
         document.getElementById(
           "liveFormStatusPill"
         ).textContent = response.status;
@@ -2158,7 +2164,7 @@
       }
     }
 
-    const workflowSections = ["documentsPanel","riskAssessmentPanel","permitPanel","ramsPanel","workInstructionPanel","liveFormPanel","plantChecksPanel","evidencePanel","finishJobPanel"];
+    const workflowSections = ["documentsPanel","liveFormPanel","plantChecksPanel","evidencePanel","finishJobPanel"];
     const workflowState = {riskAssessment:false,permit:false,rams:false,workInstruction:false,plant:false,evidence:false,finish:false};
     function hideWorkflowSections(){workflowSections.forEach(id=>{const p=document.getElementById(id);if(p)p.classList.add("hidden");});}
     function showWorkflowSection(id){
@@ -2172,7 +2178,7 @@
       if(id==="documentsPanel"){
         document.getElementById("documentsSelectedJob").textContent=
           `${selectedJob.jobName||"Unnamed Job"} • ${selectedJob.site||"Site not entered"}`;
-        loadDocumentGate().then(renderDocuments);
+        Promise.all([loadDocumentGate(),loadJobFormStatuses()]).then(renderDocuments);
       }
       if(id==="evidencePanel"){
         document.getElementById("evidenceSelectedJob").textContent=
@@ -2198,12 +2204,13 @@
       updateJobActionAvailability();
       loadActiveDelay();
       loadDocumentGate();
+      loadJobFormStatuses();
       document.getElementById("jobWorkflowPanel").scrollIntoView({
         behavior:"smooth",
         block:"start"
       });
     }
-    function updateWorkflowProgress(){const completed=1+Object.values(workflowState).filter(Boolean).length;document.getElementById("workflowProgressPill").textContent=`${completed} of 8 Complete`;const map={riskAssessment:"stepRiskAssessment",permit:"stepPermit",rams:"stepRams",workInstruction:"stepWorkInstruction",plant:"stepPlant",evidence:"stepEvidence",finish:"stepFinish"};Object.entries(map).forEach(([k,id])=>{const e=document.getElementById(id);if(e)e.classList.toggle("complete",workflowState[k]);});}
+    function updateWorkflowProgress(){const p=document.getElementById("workflowProgressPill");if(p)p.textContent=currentDocumentGate.complete?"Pre-start documents complete":"Pre-start documents pending";}
     function saveLocalWorkflowStep(step){const checks={riskAssessment:()=>riskWeather.value&&riskServices.value,permit:()=>permitNumber.value.trim()&&permitScan.value&&permitMarked.value,rams:()=>ramsConfirm.checked&&ramsSignature.value.trim(),workInstruction:()=>workInstructionConfirm.checked&&workInstructionSignature.value.trim(),plant:()=>plantTypeSelect.value&&plantIdentifier.value.trim(),finish:()=>finishWorkComplete.checked&&finishPaperworkComplete.checked&&finishPhotosComplete.checked&&finishSignature.value.trim()};const ids={riskAssessment:"riskAssessmentMessage",permit:"permitMessage",rams:"ramsMessage",workInstruction:"workInstructionMessage",plant:"plantMessage",finish:"finishMessage"};const m=document.getElementById(ids[step]);if(checks[step]&&!checks[step]()){m.innerHTML='<div class="error">Please complete all required fields before saving.</div>';return;}workflowState[step]=true;updateWorkflowProgress();m.innerHTML='<div class="success">Saved in this redesigned portal preview. Permanent Google Sheet saving will be connected when the final client forms are confirmed.</div>'; }
 
     function renderJobs() {
@@ -2296,6 +2303,69 @@
       });
     }
 
+    async function loadJobFormStatuses() {
+      if (!selectedJob || !currentOperative) {
+        currentJobFormStatuses = {};
+        return;
+      }
+
+      try {
+        const data = await apiPost({
+          action: "getJobFormStatuses",
+          name: currentOperative.name,
+          folderId: selectedJob.folderId
+        });
+        currentJobFormStatuses = data.statuses || {};
+      } catch (error) {
+        currentJobFormStatuses = {};
+      }
+    }
+
+    function getDocumentStatusInfo(doc) {
+      const template = matchDocumentTemplate(doc);
+      const required = getGateDocumentForHubDocument(doc);
+
+      if (template) {
+        const saved = currentJobFormStatuses[template.formId];
+
+        if (saved && saved.status === "Submitted") {
+          return {label:"Submitted",className:"complete",detail:saved.submittedTime||saved.updatedTime||"",template,required};
+        }
+
+        if (saved && saved.status === "Draft") {
+          return {label:"Draft saved",className:"draft",detail:saved.updatedTime||"",template,required};
+        }
+
+        return {label:"Not started",className:"pending",detail:"",template,required};
+      }
+
+      if (required) {
+        return {
+          label: required.acknowledged ? "Acknowledged" : "Not acknowledged",
+          className: required.acknowledged ? "complete" : "pending",
+          detail: required.acknowledgedTime || "",
+          template:null,
+          required
+        };
+      }
+
+      return {label:"View only",className:"draft",detail:"",template:null,required:null};
+    }
+
+    function renderDocumentProgressSummary() {
+      const el = document.getElementById("documentProgressSummary");
+      if (!el || !selectedJob) return;
+
+      const docs = selectedJob.documents || [];
+      el.innerHTML = `
+        <h3 style="margin-bottom:8px;">Job Paperwork Progress</h3>
+        ${docs.map(doc => {
+          const s = getDocumentStatusInfo(doc);
+          return `<div class="document-status-row"><span class="document-status-name">${safeText(doc.name)}</span><span class="document-status-pill ${s.className}">${safeText(s.label)}</span></div>`;
+        }).join("")}
+      `;
+    }
+
     async function loadDocumentGate() {
       if (!selectedJob || !currentOperative) return;
 
@@ -2315,6 +2385,7 @@
 
         updateDocumentGateDisplay();
         updateJobActionAvailability();
+        updateWorkflowProgress();
       } catch (error) {
         currentDocumentGate = {
           complete: false,
@@ -2423,7 +2494,7 @@
           documentUrl: required.documentUrl || doc.url
         });
 
-        await loadDocumentGate();
+        await Promise.all([loadDocumentGate(),loadJobFormStatuses()]);
         renderDocuments();
 
         document.getElementById("trackingMessage").innerHTML =
@@ -2512,69 +2583,48 @@
         `${currentOperative.name} • ${selectedJob.jobName} • ${selectedJob.site}`;
 
       const documents = selectedJob.documents || [];
+      renderDocumentProgressSummary();
 
-      if (documents.length === 0) {
-        list.innerHTML =
-          `<div class="error">No documents are currently inside this job folder.</div>`;
+      if (!documents.length) {
+        list.innerHTML = `<div class="error">No documents are currently inside this job folder.</div>`;
         return;
       }
 
       list.innerHTML = documents.map((doc, index) => {
-        const template = matchDocumentTemplate(doc);
+        const status = getDocumentStatusInfo(doc);
+        const template = status.template;
+        const required = status.required;
 
         return `
-          <div class="document-hub-item">
-            <div class="document-hub-title">
-              📄 ${safeText(doc.name)}
-            </div>
-
+          <div class="document-hub-item ${status.className === "complete" ? "done" : required ? "required" : ""}">
+            <div class="document-hub-title">📄 ${safeText(doc.name)}</div>
             <div class="document-hub-meta">
-              ${template
-                ? `Editable template recognised: ${safeText(template.title || template.formId)}`
-                : `View-only source document • ${safeText(doc.type || "File")}`
-              }
+              <span class="document-status-pill ${status.className}">${safeText(status.label)}</span>
+              ${status.detail ? `<span style="margin-left:8px;">${safeText(status.detail)}</span>` : ""}
             </div>
 
-            ${(() => {
-              const required =
-                getGateDocumentForHubDocument(doc);
-
-              if (!required) return "";
-
-              return `
-                <div class="acknowledgement-box">
-                  <strong>${safeText(required.requirementTitle)}</strong><br>
-                  ${
-                    required.acknowledged
-                      ? `<span class="acknowledged-label">Acknowledged ${safeText(required.acknowledgedTime || "")}</span>`
-                      : `<button
-                          class="button"
-                          onclick="acknowledgeRequiredDocument(${index})"
-                        >
-                          Acknowledge Document
-                        </button>`
-                  }
-                </div>
-              `;
-            })()}
+            ${required && !required.acknowledged ? `
+              <div class="acknowledgement-box">
+                <strong>${safeText(required.requirementTitle)}</strong>
+                <p style="margin:6px 0 0;">View the document and acknowledge it before starting work.</p>
+              </div>
+            ` : ""}
 
             <div class="document-hub-actions">
-              <a
-                class="button secondary"
-                href="${safeText(doc.url)}"
-                target="_blank"
-                rel="noopener"
-              >
-                Open Original
-              </a>
+              <a class="button secondary" href="${safeText(doc.url)}" target="_blank" rel="noopener">View Document</a>
 
-              ${template ? `
-                <button
-                  class="button"
-                  onclick="openDocumentAsLiveForm('${safeText(template.formId)}', ${index})"
-                >
-                  Complete Live
+              ${required && !required.acknowledged ? `
+                <button class="button" onclick="acknowledgeRequiredDocument(${index})">Acknowledge</button>
+              ` : ""}
+
+              ${template && status.label !== "Submitted" ? `
+                <button class="button" onclick="openDocumentAsLiveForm('${safeText(template.formId)}', ${index})">
+                  ${status.label === "Draft saved" ? "Continue Form" : "Complete Live"}
                 </button>
+              ` : ""}
+
+              ${template && currentJobFormStatuses[template.formId] && currentJobFormStatuses[template.formId].pdfUrl ? `
+                <a class="button secondary" href="${safeText(currentJobFormStatuses[template.formId].pdfUrl)}" target="_blank" rel="noopener">Open Submitted PDF</a>
               ` : ""}
             </div>
           </div>
