@@ -528,6 +528,15 @@
             <div class="workflow-step" id="stepRams"><div class="workflow-icon">📄</div><div class="workflow-copy"><strong>RAMS – Read and Sign</strong><span>Confirm RAMS have been read</span></div><button class="workflow-action" onclick="showWorkflowSection('ramsPanel')">Open</button></div>
             <div class="workflow-step" id="stepWorkInstruction"><div class="workflow-icon">📋</div><div class="workflow-copy"><strong>Work Instruction – Read and Sign</strong><span>Review the job-specific instruction</span></div><button class="workflow-action" onclick="showWorkflowSection('workInstructionPanel')">Open</button></div>
             <div class="workflow-step" id="stepQF76"><div class="workflow-icon">🏗️</div><div class="workflow-copy"><strong>QF76 Substation Installation Checklist</strong><span>Complete the client&apos;s checklist live onsite</span></div><button class="workflow-action" onclick="openLiveForm('QF76')">Open</button></div>
+            <div class="workflow-step" id="stepQF112">
+              <div class="workflow-icon">⚡</div>
+              <div class="workflow-copy">
+                <strong>QF112 Secondary Substation Earthing Test Form</strong>
+                <span>Complete the client&apos;s earthing test form live onsite</span>
+              </div>
+              <button class="workflow-action" onclick="openLiveForm('QF112')">Open</button>
+            </div>
+
             <div class="workflow-step" id="stepPlant"><div class="workflow-icon">🚜</div><div class="workflow-copy"><strong>Plant Check Sheets</strong><span>Record plant used onsite</span></div><button class="workflow-action" onclick="showWorkflowSection('plantChecksPanel')">Open</button></div>
             <div class="workflow-step" id="stepEvidence"><div class="workflow-icon">📷</div><div class="workflow-copy"><strong>Completion Paperwork &amp; Photo Evidence</strong><span>Upload completion photos</span></div><button class="workflow-action" onclick="showWorkflowSection('evidencePanel')">Upload</button></div>
             <div class="workflow-step" id="stepFinish"><div class="workflow-icon">✅</div><div class="workflow-copy"><strong>Final Job Sign-Off</strong><span>Confirm all work and paperwork are complete</span></div><button class="workflow-action" onclick="showWorkflowSection('finishJobPanel')">Finish</button></div>
@@ -1405,6 +1414,313 @@
             ]
           }
         ]
+,
+      QF112: {
+        id: "QF112",
+        code: "Document Number QF112",
+        title: "Secondary Substation Earthing Test Form",
+        version: "Issue 1 – 15/02/2024",
+        sections: [
+          {
+            title: "Substation Details",
+            fields: [
+              {
+                key: "network",
+                label: "Network",
+                type: "text",
+                required: true
+              },
+              {
+                key: "substationName",
+                label: "Substation Name",
+                type: "text",
+                required: true
+              },
+              {
+                key: "substationNumber",
+                label: "Substation Number",
+                type: "text",
+                required: true
+              },
+              {
+                key: "projectReference",
+                label: "Project Reference",
+                type: "text",
+                required: true
+              }
+            ]
+          },
+          {
+            title: "Earthing Design",
+            fields: [
+              {
+                key: "designReference",
+                label: "Design",
+                type: "text",
+                required: true
+              },
+              {
+                key: "hvEarthResistanceDesign",
+                label: "HV Earth Resistance Design [a] (Ω)",
+                type: "number",
+                required: true
+              },
+              {
+                key: "hvLvEarthClassification",
+                label: "HV/LV Earth Classification",
+                type: "select",
+                options: [
+                  "Combined HV/LV Earth",
+                  "Separate HV and LV Earth",
+                  "Hot Site",
+                  "Cold Site",
+                  "Other"
+                ],
+                required: true
+              },
+              {
+                key: "lvEarthResistanceDesign",
+                label: "LV Earth Resistance Design [b] (Ω)",
+                type: "number",
+                required: false
+              }
+            ]
+          },
+          {
+            title: "HV Earthing",
+            fields: [
+              {
+                key: "hvEarthingChecklist",
+                label: "HV Earthing",
+                type: "checklist",
+                required: true,
+                options: ["Complete", "N/A", "Defect / Incomplete"],
+                items: [
+                  {
+                    key: "earthRods",
+                    label: "Earth rods installed and connected."
+                  },
+                  {
+                    key: "potentialGrading",
+                    label: "Potential grading installed."
+                  },
+                  {
+                    key: "perimeterRing",
+                    label: "Perimeter ring grading electrode installed."
+                  },
+                  {
+                    key: "embeddedMesh",
+                    label: "Embedded mesh installed."
+                  },
+                  {
+                    key: "rebarConnected",
+                    label: "Rebar connected to earth bar."
+                  },
+                  {
+                    key: "additionalEarthing",
+                    label: "Additional earthing installed if required."
+                  },
+                  {
+                    key: "earthBarInstalled",
+                    label: "Earth bar installed."
+                  },
+                  {
+                    key: "earthingSketchProvided",
+                    label: "Sketch of complete earthing system provided."
+                  }
+                ]
+              },
+              {
+                key: "earthingSketchNotes",
+                label: "Earthing System Sketch / Description",
+                type: "textarea",
+                required: true
+              }
+            ]
+          },
+          {
+            title: "Equipment Connections and Bonding",
+            fields: [
+              {
+                key: "bondingChecklist",
+                label: "Equipment Connections and Bonding",
+                type: "checklist",
+                required: true,
+                options: ["Complete", "N/A", "Defect / Incomplete"],
+                items: [
+                  {
+                    key: "switchgearEarth",
+                    label: "Switchgear connected to earth bar."
+                  },
+                  {
+                    key: "transformerEarth",
+                    label: "Transformer connected to earth bar."
+                  },
+                  {
+                    key: "lvCabinetEarth",
+                    label: "LV cabinet / pillar / board internal earth connected to earth bar."
+                  },
+                  {
+                    key: "metallicFenceEarth",
+                    label: "Metallic fence earthed and connected to earth bar."
+                  },
+                  {
+                    key: "metallicGatesEarth",
+                    label: "Metallic gates earthed and connected to earth bar."
+                  },
+                  {
+                    key: "doorsEarth",
+                    label: "Doors connection to earth bar.",
+                    options: [
+                      "Connected",
+                      "Not Connected",
+                      "N/A"
+                    ]
+                  },
+                  {
+                    key: "otherMetalworkEarth",
+                    label: "All other items of equipment / metalwork connected to earth bar."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            title: "Earth Resistance Measurements",
+            fields: [
+              {
+                key: "hvEarthResistanceMeasured",
+                label: "HV Earth Resistance Before Connection to Network [c] (Ω)",
+                type: "number",
+                required: true
+              },
+              {
+                key: "lvEarthResistanceMeasured",
+                label: "LV Earth Resistance – Separate LV Earth Only [d] (Ω)",
+                type: "number",
+                required: false
+              },
+              {
+                key: "measurementCertificateAttached",
+                label: "Measurement Certificate Attached for Customer Values",
+                type: "select",
+                options: [
+                  "Yes",
+                  "No",
+                  "N/A"
+                ],
+                required: true
+              },
+              {
+                key: "resistancesWithinDesign",
+                label: "All Earth Resistances Within Design Values [c < a and d < b]",
+                type: "select",
+                options: [
+                  "Yes",
+                  "No",
+                  "N/A"
+                ],
+                required: true
+              }
+            ]
+          },
+          {
+            title: "Final Checks",
+            fields: [
+              {
+                key: "finalChecks",
+                label: "Final Checks",
+                type: "checklist",
+                required: true,
+                options: ["Complete", "N/A", "Defect / Incomplete"],
+                items: [
+                  {
+                    key: "hvLvEarthFinal",
+                    label: "HV/LV Earth final check."
+                  },
+                  {
+                    key: "neutralEarthLink",
+                    label: "Neutral / earth link checked."
+                  },
+                  {
+                    key: "earthBarLabels",
+                    label: "All connections individually labelled on earth bar."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            title: "Test Equipment",
+            fields: [
+              {
+                key: "testPurpose",
+                label: "Purpose",
+                type: "text",
+                required: true
+              },
+              {
+                key: "testEquipmentMakeType",
+                label: "Make / Type",
+                type: "text",
+                required: true
+              },
+              {
+                key: "testEquipmentSerial",
+                label: "Serial Number",
+                type: "text",
+                required: true
+              },
+              {
+                key: "calibrationDate",
+                label: "Calibration Date",
+                type: "text",
+                required: true
+              }
+            ]
+          },
+          {
+            title: "Certification",
+            fields: [
+              {
+                key: "testsCompletedSatisfactorily",
+                label: "All Tests Have Been Completed Satisfactorily",
+                type: "select",
+                options: [
+                  "Yes",
+                  "No"
+                ],
+                required: true
+              },
+              {
+                key: "comments",
+                label: "Comments",
+                type: "textarea",
+                required: false
+              },
+              {
+                key: "commissioningEngineer",
+                label: "Commissioning Engineer",
+                type: "text",
+                required: true
+              },
+              {
+                key: "signature",
+                label: "Signature / Full Name",
+                type: "text",
+                required: true
+              },
+              {
+                key: "date",
+                label: "Date",
+                type: "text",
+                required: true
+              }
+            ]
+          }
+        ]
+      }
+
       }
     };
 
@@ -1430,7 +1746,7 @@
                     ${index + 1}. ${safeText(item.label)}
                   </div>
                   <div class="qf76-options">
-                    ${(field.options || []).map(option => `
+                    ${((item.options && item.options.length) ? item.options : (field.options || [])).map(option => `
                       <label>
                         <input
                           type="radio"
@@ -1459,6 +1775,28 @@
           : field.defaultFromOperative && currentOperative
             ? currentOperative.name
             : field.defaultValue || "";
+
+      if (field.type === "select") {
+        return `
+          <label for="live_${field.key}">
+            ${safeText(field.label)}${requiredMark}
+          </label>
+          <select
+            id="live_${field.key}"
+            data-live-field="${field.key}"
+          >
+            <option value="">Select...</option>
+            ${(field.options || []).map(option => `
+              <option
+                value="${safeText(option)}"
+                ${String(value) === String(option) ? "selected" : ""}
+              >
+                ${safeText(option)}
+              </option>
+            `).join("")}
+          </select>
+        `;
+      }
 
       if (field.type === "textarea") {
         return `
@@ -1757,12 +2095,27 @@
       const list = document.getElementById("jobsList");
       const pill = document.getElementById("jobCountPill");
 
+      // Clear any job opened by the previous user.
+      selectedJob = null;
+      currentJobTracking = null;
+      activeDelay = null;
+      stopDelayTicker();
+
       pill.textContent = `${jobs.length} Job${jobs.length === 1 ? "" : "s"}`;
 
+      document.getElementById("jobWorkflowPanel").classList.add("hidden");
+      hideWorkflowSections();
       document.getElementById("documentsPanel").classList.add("hidden");
       document.getElementById("evidencePanel").classList.add("hidden");
 
+      const trackingMessage = document.getElementById("trackingMessage");
+      if (trackingMessage) trackingMessage.innerHTML = "";
+
       if (jobs.length === 0) {
+        currentLiveFormId = "";
+        currentLiveFormStatus = "";
+        currentLiveFormLoadedFolder = "";
+
         list.innerHTML = `
           <div class="card">
             <div class="card-icon">📍</div>
@@ -2023,6 +2376,10 @@
       document.getElementById("documentsPanel").classList.add("hidden");
       document.getElementById("evidencePanel").classList.add("hidden");
       document.getElementById("loginMessage").innerHTML = "";
+      document.getElementById("jobsList").innerHTML = "";
+      document.getElementById("jobCountPill").textContent = "0 Jobs";
+      document.getElementById("jobWorkflowPanel").classList.add("hidden");
+      hideWorkflowSections();
 
       renderVanChecks();
       window.scrollTo({ top: 0, behavior: "smooth" });
