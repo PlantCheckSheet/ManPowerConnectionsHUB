@@ -1,2550 +1,2868 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ManPowerConnections | Operative Portal</title>
+const SHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
 
-  <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
+const TAB_OPERATIVES = "Operatives";
+const TAB_VAN_CHECKS = "Van Checks";
+const TAB_PHOTO_UPLOADS = "Photo Uploads";
+const TAB_JOB_STATUS = "Job Status";
+const TAB_JOB_TIME_LOG = "Job Time Log";
+const TAB_QF76 = "QF76 Substation Checklist";
+const TAB_LIVE_FORMS = "Live Form Submissions";
+const TAB_FORM_TEMPLATES = "Form Templates";
+const TAB_DOCUMENT_REQUIREMENTS = "Document Requirements";
+const TAB_DOCUMENT_ACKS = "Document Acknowledgements";
 
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="ManPowerConnections">
-  <meta name="theme-color" content="#12b8d4">
+const TIMEZONE = "Europe/London";
 
-  <style>
-    :root {
-      --mpc-cyan: #12b8d4;
-      --mpc-cyan-dark: #0797b3;
-      --mpc-charcoal: #25313b;
-      --mpc-slate: #5e6972;
-      --mpc-light: #f5f8fa;
-      --mpc-white: #ffffff;
-      --mpc-border: rgba(18,184,212,0.22);
-      --mpc-shadow: 0 18px 45px rgba(0,0,0,0.28);
-      --mpc-danger: #dc2626;
-      --mpc-warning: #f59e0b;
-      --mpc-success: #16a34a;
+/* =========================================================
+   WEB APP ENTRY POINTS
+========================================================= */
+
+function doGet(e) {
+  try {
+    const action = e && e.parameter ? e.parameter.action : "";
+
+    if (action === "getOperatives") {
+      return getOperatives();
     }
 
-    * { box-sizing: border-box; font-family: "Segoe UI", Arial, sans-serif; }
+    return jsonResponse({
+      success: true,
+      message: "ManPowerConnections API is running"
+    });
 
-    html {
-      margin: 0;
-      width: 100%;
-      max-width: 100%;
-      overflow-x: hidden;
-      overscroll-behavior-x: none;
+  } catch (err) {
+    return jsonResponse({
+      success: false,
+      message: err.message || err.toString()
+    });
+  }
+}
+
+
+function doPost(e) {
+  try {
+    if (!e || !e.postData || !e.postData.contents) {
+      return jsonResponse({
+        success: false,
+        message: "No data received"
+      });
     }
 
-    body {
-      margin: 0;
-      width: 100%;
-      max-width: 100%;
-      overflow-x: hidden;
-      position: relative;
-      touch-action: pan-y;
+    const data = JSON.parse(e.postData.contents);
+    const action = data.action;
+
+    if (action === "getOperatives") return getOperatives();
+    if (action === "login") return login(data);
+    if (action === "getDashboard") return getDashboard(data);
+    if (action === "submitVanCheck") return submitVanCheck(data);
+    if (action === "uploadPhoto") return uploadPhoto(data);
+    if (action === "updateJobStatus") return updateJobStatus(data);
+    if (action === "getJobTracking") return getJobTracking(data);
+    if (action === "startDelay") return startDelay(data);
+    if (action === "endDelay") return endDelay(data);
+    if (action === "getActiveDelay") return getActiveDelay(data);
+    if (action === "getQF76") return getQF76(data);
+    if (action === "saveQF76") return saveQF76(data);
+    if (action === "getLiveForm") return getLiveForm(data);
+    if (action === "saveLiveForm") return saveLiveForm(data);
+    if (action === "getFormTemplates") return getFormTemplates(data);
+    if (action === "getDocumentGate") return getDocumentGate(data);
+    if (action === "acknowledgeDocument") return acknowledgeDocument(data);
+
+    return jsonResponse({
+      success: false,
+      message: "Unknown action: " + action
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return jsonResponse({
+      success: false,
+      message: err.message || err.toString()
+    });
+  }
+}
+
+
+/* =========================================================
+   GENERAL HELPERS
+========================================================= */
+
+function getSheet(name) {
+  const spreadsheet = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = spreadsheet.getSheetByName(name);
+
+  if (!sheet) {
+    throw new Error("Sheet tab not found: " + name);
+  }
+
+  return sheet;
+}
+
+
+function getOrCreateSheet(name, headers) {
+  const spreadsheet = SpreadsheetApp.openById(SHEET_ID);
+  let sheet = spreadsheet.getSheetByName(name);
+
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(name);
+  }
+
+  if (headers && headers.length) {
+    if (sheet.getLastRow() === 0) {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    } else {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     }
 
-    body {
-      min-height: 100vh;
-      background:
-        radial-gradient(circle at top left, rgba(18,184,212,0.28), transparent 34%),
-        radial-gradient(circle at bottom right, rgba(150,158,163,0.32), transparent 36%),
-        linear-gradient(135deg, rgba(37,49,59,0.93), rgba(8,18,27,0.96)),
-        url("excavator.jpg");
-      background-size: cover;
-      background-position: center;
-      background-attachment: fixed;
-      color: #fff;
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
+  }
+
+  return sheet;
+}
+
+
+function nowUKText() {
+  return Utilities.formatDate(
+    new Date(),
+    TIMEZONE,
+    "dd/MM/yyyy HH:mm:ss"
+  );
+}
+
+
+function makeJobId(operative, folderId) {
+  return normaliseName(operative).replace(/\s+/g, "_") + "_" + String(folderId || "").trim();
+}
+
+
+function todayUK() {
+  return Utilities.formatDate(
+    new Date(),
+    TIMEZONE,
+    "dd/MM/yyyy"
+  );
+}
+
+
+function isActive(value) {
+  const active = String(value || "")
+    .trim()
+    .toUpperCase();
+
+  return [
+    "TRUE",
+    "YES",
+    "Y",
+    "ACTIVE",
+    "OPEN"
+  ].includes(active);
+}
+
+
+function normaliseName(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+
+function normaliseHeader(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+
+/**
+ * Normalises dates into DD/MM/YYYY.
+ *
+ * Because the Jobs sheet is read using getDisplayValues(),
+ * this reads the date exactly as it appears in the sheet.
+ */
+function normaliseDisplayedDate(value) {
+  const text = String(value || "").trim();
+
+  if (!text) {
+    return "";
+  }
+
+  // Handles DD/MM/YYYY, D/M/YYYY, DD-MM-YYYY and D-M-YYYY
+  const slashOrDashMatch = text.match(
+    /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/
+  );
+
+  if (slashOrDashMatch) {
+    const day = slashOrDashMatch[1].padStart(2, "0");
+    const month = slashOrDashMatch[2].padStart(2, "0");
+    const year = slashOrDashMatch[3];
+
+    return day + "/" + month + "/" + year;
+  }
+
+  // Handles YYYY-MM-DD
+  const isoMatch = text.match(
+    /^(\d{4})-(\d{1,2})-(\d{1,2})$/
+  );
+
+  if (isoMatch) {
+    const year = isoMatch[1];
+    const month = isoMatch[2].padStart(2, "0");
+    const day = isoMatch[3].padStart(2, "0");
+
+    return day + "/" + month + "/" + year;
+  }
+
+  return text;
+}
+
+
+/* =========================================================
+   OPERATIVES
+========================================================= */
+
+function getOperatives() {
+  const sheet = getSheet(TAB_OPERATIVES);
+  const rows = sheet.getDataRange().getDisplayValues();
+
+  if (rows.length < 2) {
+    return jsonResponse({
+      success: true,
+      operatives: []
+    });
+  }
+
+  const headers = rows.shift().map(normaliseHeader);
+
+  const nameIndex = headers.indexOf("name");
+  const activeIndex = headers.indexOf("active");
+
+  if (nameIndex === -1 || activeIndex === -1) {
+    return jsonResponse({
+      success: false,
+      message: "Missing required columns in Operatives. Needed: Name and Active"
+    });
+  }
+
+  const operatives = rows
+    .filter(row => isActive(row[activeIndex]))
+    .map(row => String(row[nameIndex] || "").trim())
+    .filter(name => name !== "");
+
+  return jsonResponse({
+    success: true,
+    operatives: operatives
+  });
+}
+
+
+function login(data) {
+  const sheet = getSheet(TAB_OPERATIVES);
+  const rows = sheet.getDataRange().getDisplayValues();
+
+  if (rows.length < 2) {
+    return jsonResponse({
+      success: false,
+      message: "No operatives found"
+    });
+  }
+
+  const headers = rows.shift().map(normaliseHeader);
+
+  const nameIndex = headers.indexOf("name");
+  const pinIndex = headers.indexOf("pin");
+  const vehicleIndex = headers.indexOf("vehicle");
+  const activeIndex = headers.indexOf("active");
+
+  if (
+    nameIndex === -1 ||
+    pinIndex === -1 ||
+    vehicleIndex === -1 ||
+    activeIndex === -1
+  ) {
+    return jsonResponse({
+      success: false,
+      message: "Missing required columns in Operatives. Needed: Name, PIN, Vehicle and Active"
+    });
+  }
+
+  const requestedName = normaliseName(
+    data.name || data.operative
+  );
+
+  const requestedPin = String(data.pin || "").trim();
+
+  const match = rows.find(row =>
+    normaliseName(row[nameIndex]) === requestedName &&
+    String(row[pinIndex] || "").trim() === requestedPin &&
+    isActive(row[activeIndex])
+  );
+
+  if (!match) {
+    return jsonResponse({
+      success: false,
+      message: "Incorrect name or PIN"
+    });
+  }
+
+  return jsonResponse({
+    success: true,
+    name: String(match[nameIndex] || "").trim(),
+    vehicle: String(match[vehicleIndex] || "").trim()
+  });
+}
+
+
+/* =========================================================
+   DASHBOARD AND DRIVE-BASED JOB LOOKUP
+========================================================= */
+
+function getDashboard(data) {
+  const operative = data.name || data.operative;
+
+  if (!operative) {
+    return jsonResponse({
+      success: false,
+      message: "No operative name received by Apps Script"
+    });
+  }
+
+  const dateToday = todayUK();
+  const jobs = getTodaysJobsFromDrive(operative, dateToday);
+  const vanCheckComplete = hasVanCheckToday(
+    operative,
+    dateToday
+  );
+
+  const tracking = getTrackingForJobs(operative, jobs);
+
+  return jsonResponse({
+    success: true,
+    operative: operative,
+    date: dateToday,
+    vanCheckComplete: vanCheckComplete,
+    jobFound: jobs.length > 0,
+    jobs: jobs,
+    tracking: tracking
+  });
+}
+
+
+/**
+ * Accepts either a raw Google Drive ID or a complete Drive URL.
+ */
+function extractDriveId(value) {
+  const text = String(value || "").trim();
+
+  if (!text) {
+    return "";
+  }
+
+  const match = text.match(/[-\w]{20,}/);
+  return match ? match[0] : "";
+}
+
+
+/**
+ * Returns the possible folder names the office may use for a date.
+ * Recommended format: DD-MM-YYYY
+ */
+function getDateFolderNames(dateToday) {
+  const normalised = normaliseDisplayedDate(dateToday);
+  const parts = normalised.split("/");
+
+  if (parts.length !== 3) {
+    return [normalised];
+  }
+
+  const day = parts[0];
+  const month = parts[1];
+  const year = parts[2];
+
+  return [
+    day + "-" + month + "-" + year,
+    day + "_" + month + "_" + year,
+    day + "." + month + "." + year,
+    day + "/" + month + "/" + year,
+    normalised
+  ];
+}
+
+
+/**
+ * Finds the first child folder matching one of the supplied names.
+ * Matching is case-insensitive and ignores leading/trailing spaces.
+ */
+function findChildFolderByNames(parentFolder, candidateNames) {
+  const wanted = candidateNames.map(name =>
+    String(name || "").trim().toLowerCase()
+  );
+
+  const folders = parentFolder.getFolders();
+
+  while (folders.hasNext()) {
+    const folder = folders.next();
+    const folderName = folder.getName().trim().toLowerCase();
+
+    if (wanted.includes(folderName)) {
+      return folder;
+    }
+  }
+
+  return null;
+}
+
+
+/**
+ * Reads the personal operative folder ID from the Operatives sheet.
+ *
+ * Required heading:
+ * Operative Folder ID
+ *
+ * This is a one-time setup per employee. Daily job folders do not
+ * need to be entered into Google Sheets.
+ */
+function getOperativeFolderId(operativeName) {
+  const sheet = getSheet(TAB_OPERATIVES);
+  const rows = sheet.getDataRange().getDisplayValues();
+
+  if (rows.length < 2) {
+    throw new Error("No operatives found");
+  }
+
+  const headers = rows.shift().map(normaliseHeader);
+
+  const nameIndex = headers.indexOf("name");
+  const folderIndex = headers.indexOf("operative folder id");
+  const activeIndex = headers.indexOf("active");
+
+  if (nameIndex === -1) {
+    throw new Error("Missing Name column in Operatives");
+  }
+
+  if (folderIndex === -1) {
+    throw new Error(
+      'Missing "Operative Folder ID" column in Operatives'
+    );
+  }
+
+  const targetName = normaliseName(operativeName);
+
+  const match = rows.find(row =>
+    normaliseName(row[nameIndex]) === targetName &&
+    (activeIndex === -1 || isActive(row[activeIndex]))
+  );
+
+  if (!match) {
+    throw new Error(
+      "No active operative record was found for " + operativeName
+    );
+  }
+
+  const folderId = extractDriveId(match[folderIndex]);
+
+  if (!folderId) {
+    throw new Error(
+      "No valid Operative Folder ID has been added for " +
+      operativeName
+    );
+  }
+
+  return folderId;
+}
+
+
+/**
+ * Lists documents from a job folder and its document subfolders.
+ * The Photo Evidence folder is deliberately excluded.
+ */
+function getJobDocuments(jobFolder, pathPrefix, depth) {
+  const documents = [];
+  const prefix = pathPrefix || "";
+  const remainingDepth = typeof depth === "number" ? depth : 3;
+
+  const files = jobFolder.getFiles();
+
+  while (files.hasNext()) {
+    const file = files.next();
+
+    documents.push({
+      id: file.getId(),
+      name: prefix + file.getName(),
+      originalName: file.getName(),
+      url: file.getUrl(),
+      type: file.getMimeType()
+    });
+  }
+
+  if (remainingDepth > 0) {
+    const folders = jobFolder.getFolders();
+
+    while (folders.hasNext()) {
+      const childFolder = folders.next();
+      const childName = childFolder.getName();
+
+      if (normaliseName(childName) === "photo evidence") {
+        continue;
+      }
+
+      const childDocuments = getJobDocuments(
+        childFolder,
+        prefix + childName + " / ",
+        remainingDepth - 1
+      );
+
+      documents.push.apply(documents, childDocuments);
+    }
+  }
+
+  documents.sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
+  return documents;
+}
+
+
+/**
+ * Discovers today's jobs using this Drive structure:
+ *
+ * Operative folder
+ *   └── DD-MM-YYYY
+ *       ├── Job 1 - Birmingham
+ *       │   ├── RAMS.pdf
+ *       │   ├── Drawings.pdf
+ *       │   └── Photo Evidence
+ *       └── Job 2 - Coventry
+ *
+ * If files are placed directly inside the date folder, they are
+ * displayed as a single "Daily Job Pack".
+ */
+function getTodaysJobsFromDrive(operative, dateToday) {
+  const operativeFolderId = getOperativeFolderId(operative);
+  const operativeFolder = DriveApp.getFolderById(
+    operativeFolderId
+  );
+
+  const dateFolderNames = getDateFolderNames(dateToday);
+  const dateFolder = findChildFolderByNames(
+    operativeFolder,
+    dateFolderNames
+  );
+
+  if (!dateFolder) {
+    console.log(
+      "No date folder found for " +
+      operative +
+      ". Looked for: " +
+      dateFolderNames.join(", ")
+    );
+
+    return [];
+  }
+
+  const jobs = [];
+  const jobFolders = dateFolder.getFolders();
+
+  while (jobFolders.hasNext()) {
+    const jobFolder = jobFolders.next();
+    const jobFolderName = jobFolder.getName().trim();
+
+    if (normaliseName(jobFolderName) === "photo evidence") {
+      continue;
     }
 
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
-      background-size: 42px 42px;
-      mask-image: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent 85%);
-      z-index: -1;
+    jobs.push({
+      id: jobFolder.getId(),
+      date: normaliseDisplayedDate(dateToday),
+      site: jobFolderName,
+      jobName: jobFolderName,
+      folderId: jobFolder.getId(),
+      folderUrl: jobFolder.getUrl(),
+      status: "Active",
+      documents: getJobDocuments(jobFolder, "", 3)
+    });
+  }
+
+  // Support a simple setup where documents are placed directly in
+  // the date folder and no individual job subfolders have been made.
+  const directDocuments = [];
+  const directFiles = dateFolder.getFiles();
+
+  while (directFiles.hasNext()) {
+    const file = directFiles.next();
+
+    directDocuments.push({
+      id: file.getId(),
+      name: file.getName(),
+      originalName: file.getName(),
+      url: file.getUrl(),
+      type: file.getMimeType()
+    });
+  }
+
+  if (jobs.length === 0 && directDocuments.length > 0) {
+    directDocuments.sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+
+    jobs.push({
+      id: dateFolder.getId(),
+      date: normaliseDisplayedDate(dateToday),
+      site: "Today's Work",
+      jobName: "Daily Job Pack",
+      folderId: dateFolder.getId(),
+      folderUrl: dateFolder.getUrl(),
+      status: "Active",
+      documents: directDocuments
+    });
+  }
+
+  jobs.sort((a, b) =>
+    a.jobName.localeCompare(b.jobName)
+  );
+
+  console.log(
+    "Drive jobs found for " +
+    operative +
+    " on " +
+    dateToday +
+    ": " +
+    jobs.length
+  );
+
+  return jobs;
+}
+
+
+/* =========================================================
+   JOB STATUS AND TIME TRACKING
+========================================================= */
+
+function getJobStatusSheet() {
+  return getOrCreateSheet(TAB_JOB_STATUS, [
+    "Job ID",
+    "Operative",
+    "Job Name",
+    "Job Folder ID",
+    "Current Status",
+    "Accepted Time",
+    "Travel Started",
+    "Arrived On Site",
+    "Work Started",
+    "Last Paused",
+    "Last Resumed",
+    "Paused Overnight",
+    "Completed Time",
+    "Updated Time",
+    "Completion Signature",
+    "Completion Notes",
+    "Completion PDF URL"
+  ]);
+}
+
+
+function getJobTimeLogSheet() {
+  return getOrCreateSheet(TAB_JOB_TIME_LOG, [
+    "Timestamp",
+    "Operative",
+    "Job ID",
+    "Job Name",
+    "Action",
+    "Delay Reason",
+    "Notes",
+    "Job Folder ID",
+    "Delay ID",
+    "Delay Start",
+    "Delay End",
+    "Delay Minutes"
+  ]);
+}
+
+
+function findJobStatusRow(sheet, jobId) {
+  const values = sheet.getDataRange().getDisplayValues();
+
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0] || "").trim() === String(jobId || "").trim()) {
+      return i + 1;
+    }
+  }
+
+  return -1;
+}
+
+
+function getTrackingForJobs(operative, jobs) {
+  const sheet = getJobStatusSheet();
+  const values = sheet.getDataRange().getDisplayValues();
+  const tracking = {};
+
+  jobs.forEach(job => {
+    const jobId = makeJobId(operative, job.folderId);
+    tracking[job.folderId] = {
+      jobId: jobId,
+      status: "Not Accepted"
+    };
+  });
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const rowOperative = normaliseName(row[1]);
+
+    if (rowOperative !== normaliseName(operative)) {
+      continue;
     }
 
-    .app-header {
-      position: relative;
-      overflow: hidden;
-      background: linear-gradient(135deg, rgba(18,184,212,0.96), rgba(7,151,179,0.96));
-      color: #fff;
-      padding: 22px 16px 34px;
-      border-bottom-left-radius: 34px;
-      border-bottom-right-radius: 34px;
-      box-shadow: var(--mpc-shadow);
-      text-align: center;
+    const folderId = String(row[3] || "").trim();
+
+    if (tracking[folderId]) {
+      tracking[folderId] = {
+        jobId: String(row[0] || "").trim(),
+        status: String(row[4] || "Not Accepted").trim(),
+        acceptedTime: row[5] || "",
+        travelStarted: row[6] || "",
+        arrivedOnSite: row[7] || "",
+        workStarted: row[8] || "",
+        lastPaused: row[9] || "",
+        lastResumed: row[10] || "",
+        pausedOvernight: row[11] || "",
+        completedTime: row[12] || "",
+        completionSignature: row[14] || "",
+        completionNotes: row[15] || "",
+        completionPdfUrl: row[16] || ""
+      };
     }
+  }
 
-    .app-header::after {
-      content: "";
-      position: absolute;
-      left: -8%; right: -8%; bottom: -42px;
-      height: 88px;
-      background: rgba(150,158,163,0.32);
-      border-radius: 50% 50% 0 0;
+  return tracking;
+}
+
+
+function getJobTracking(data) {
+  const operative = data.name || data.operative;
+  const folderId = extractDriveId(data.folderId);
+
+  if (!operative || !folderId) {
+    return jsonResponse({
+      success: false,
+      message: "Operative and job folder are required"
+    });
+  }
+
+  const tracking = getTrackingForJobs(operative, [{
+    folderId: folderId
+  }]);
+
+  return jsonResponse({
+    success: true,
+    tracking: tracking[folderId] || {
+      jobId: makeJobId(operative, folderId),
+      status: "Not Accepted"
     }
+  });
+}
 
-    .header-badge, .app-header h1, .header-sub, .header-date { position: relative; z-index: 1; }
-    .header-badge {
-      display: inline-block;
-      margin-bottom: 10px;
-      background: rgba(255,255,255,0.2);
-      border: 1px solid rgba(255,255,255,0.3);
-      padding: 7px 16px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 1.4px;
-      text-transform: uppercase;
+
+function formatDateTimeForReport(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return Utilities.formatDate(
+    date,
+    TIMEZONE,
+    "dd/MM/yyyy HH:mm:ss"
+  );
+}
+
+
+function durationBetween(startValue, endValue) {
+  if (!startValue || !endValue) {
+    return "Not available";
+  }
+
+  const start = startValue instanceof Date
+    ? startValue
+    : new Date(startValue);
+
+  const end = endValue instanceof Date
+    ? endValue
+    : new Date(endValue);
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
+    return "Not available";
+  }
+
+  const totalMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return hours + "h " + minutes + "m";
+}
+
+
+function getJobTimeLogRows(jobId) {
+  const sheet = getJobTimeLogSheet();
+  const values = sheet.getDataRange().getValues();
+  const rows = [];
+
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][2] || "").trim() === String(jobId || "").trim()) {
+      rows.push(values[i]);
     }
+  }
 
-    .app-header h1 {
-      margin: 6px 0 6px;
-      font-size: 28px;
-      font-weight: 900;
-      letter-spacing: -0.4px;
-      text-shadow: 0 3px 12px rgba(0,0,0,0.2);
+  rows.sort((a, b) => {
+    const aTime = a[0] instanceof Date ? a[0].getTime() : new Date(a[0]).getTime();
+    const bTime = b[0] instanceof Date ? b[0].getTime() : new Date(b[0]).getTime();
+    return aTime - bTime;
+  });
+
+  return rows;
+}
+
+
+function getJobPhotoRows(operative, jobName, folderId) {
+  const sheet = getPhotoUploadsSheet();
+  const values = sheet.getDataRange().getDisplayValues();
+  const rows = [];
+
+  for (let i = 1; i < values.length; i++) {
+    const rowOperative = normaliseName(values[i][2]);
+    const rowJobName = normaliseName(values[i][4]);
+    const rowFolderId = String(values[i][8] || "").trim();
+
+    const operativeMatches =
+      rowOperative === normaliseName(operative);
+
+    const folderMatches =
+      rowFolderId && rowFolderId === String(folderId || "").trim();
+
+    const legacyJobMatches =
+      !rowFolderId && rowJobName === normaliseName(jobName);
+
+    if (operativeMatches && (folderMatches || legacyJobMatches)) {
+      rows.push(values[i]);
     }
+  }
 
-    .header-sub { font-size: 13px; font-weight: 700; opacity: 0.95; }
-    .header-date { margin-top: 8px; font-size: 12px; font-weight: 700; opacity: 0.9; }
+  return rows;
+}
 
-    .logo-section {
-      text-align: center;
-      padding: 0;
-      margin-top: -24px;
-      position: relative;
-      z-index: 2;
-    }
 
-    .logo-section img {
-      max-width: 430px;
-      max-height: 165px;
-      width: 84%;
-      height: auto;
-      padding: 18px 22px;
-      background: rgba(255,255,255,0.96);
-      border-radius: 22px;
-      border: 1px solid rgba(255,255,255,0.65);
-      box-shadow: 0 18px 42px rgba(0,0,0,0.32);
-    }
+function getOrCreateChildFolder(parentFolder, folderName) {
+  const folders = parentFolder.getFoldersByName(folderName);
 
-    main { max-width: 1100px; margin: 22px auto 0; padding: 0 16px 28px; width: 100%; }
+  return folders.hasNext()
+    ? folders.next()
+    : parentFolder.createFolder(folderName);
+}
 
-    .panel, .card {
-      position: relative;
-      overflow: hidden;
-      background: rgba(255,255,255,0.95);
-      color: var(--mpc-charcoal);
-      padding: 22px;
-      border-radius: 22px;
-      border: 1px solid var(--mpc-border);
-      box-shadow: 0 16px 36px rgba(0,0,0,0.22);
-      backdrop-filter: blur(10px);
-    }
 
-    .panel::before, .card::before {
-      content: "";
-      position: absolute;
-      inset: 0 0 auto 0;
-      height: 5px;
-      background: linear-gradient(90deg, var(--mpc-cyan), #8f989d);
-    }
+function generateCompletionPdf(details) {
+  const jobFolder = DriveApp.getFolderById(details.folderId);
+  const completedFolder = getOrCreateChildFolder(
+    jobFolder,
+    "Completed Forms"
+  );
 
-    .hidden { display: none !important; }
-    .center { text-align: center; }
-    h2, h3 { color: var(--mpc-charcoal); margin-top: 0; }
-    p { color: var(--mpc-slate); font-weight: 600; line-height: 1.45; }
+  const safeJobName = String(details.jobName || "Job")
+    .replace(/[\\/:*?"<>|]/g, "-");
 
-    label {
-      display: block;
-      color: var(--mpc-charcoal);
-      font-weight: 900;
-      font-size: 13px;
-      margin: 14px 0 7px;
-    }
+  const timestampForFile = Utilities.formatDate(
+    new Date(),
+    TIMEZONE,
+    "dd-MM-yyyy HH-mm-ss"
+  );
 
-    select, input, textarea {
-      width: 100%;
-      border: 1px solid #d9e2e8;
-      border-radius: 14px;
-      padding: 14px;
-      font-size: 15px;
-      outline: none;
-      background: #fff;
-      color: var(--mpc-charcoal);
-    }
+  const reportName =
+    safeJobName + " - Completion Report - " + timestampForFile;
 
-    textarea { min-height: 96px; resize: vertical; }
+  const doc = DocumentApp.create(reportName);
+  const body = doc.getBody();
 
-    select:focus, input:focus, textarea:focus {
-      border-color: var(--mpc-cyan);
-      box-shadow: 0 0 0 4px rgba(18,184,212,0.14);
-    }
+  body.appendParagraph("MANPOWERCONNECTIONS")
+    .setHeading(DocumentApp.ParagraphHeading.HEADING1);
 
-    .button {
-      display: block;
-      width: 100%;
-      padding: 15px;
-      background: linear-gradient(135deg, var(--mpc-cyan), var(--mpc-cyan-dark));
-      color: #fff;
-      text-decoration: none;
-      border-radius: 14px;
-      font-weight: 900;
-      text-align: center;
-      border: none;
-      cursor: pointer;
-      transition: 0.25s ease;
-      font-size: 15px;
-      box-shadow: 0 12px 22px rgba(18,184,212,0.25);
-      margin-top: 14px;
-    }
+  body.appendParagraph("JOB COMPLETION REPORT")
+    .setHeading(DocumentApp.ParagraphHeading.HEADING2);
 
-    .button.secondary { background: #eef6f8; color: var(--mpc-charcoal); box-shadow: none; }
-    .button.danger { background: linear-gradient(135deg, #ef4444, #dc2626); }
-    .button:active { transform: scale(0.96); }
-    .button:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+  body.appendParagraph(
+    "Generated automatically on " + nowUKText()
+  );
 
-    .login-shell { max-width: 520px; margin: 0 auto; }
-    .small-note { font-size: 12px; color: var(--mpc-slate); font-weight: 700; margin-top: 10px; }
-    .error { background: #fee2e2; color: #991b1b; padding: 12px; border-radius: 14px; font-weight: 800; margin-top: 14px; }
-    .success { background: #dcfce7; color: #166534; padding: 12px; border-radius: 14px; font-weight: 800; margin-top: 14px; }
+  body.appendHorizontalRule();
 
-    .status-grid, .card-grid, .job-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 14px;
-      margin-top: 16px;
-    }
+  body.appendParagraph("Job Details")
+    .setHeading(DocumentApp.ParagraphHeading.HEADING2);
 
-    .status-tile {
-      border-radius: 16px;
-      padding: 16px;
-      background: var(--mpc-light);
-      border: 1px solid #dce5ea;
-      font-weight: 900;
-      color: var(--mpc-charcoal);
-    }
+  const detailsTable = body.appendTable([
+    ["Job Name", details.jobName || ""],
+    ["Operative", details.operative || ""],
+    ["Job ID", details.jobId || ""],
+    ["Current Status", "Completed"],
+    ["Completion Signature", details.signature || ""],
+    ["Completion Notes", details.completionNotes || ""]
+  ]);
 
-    .status-tile span { display: block; color: var(--mpc-slate); font-size: 12px; margin-top: 4px; }
-    .locked { opacity: .58; filter: grayscale(.25); }
+  detailsTable.getRow(0).getCell(0).setBackgroundColor("#d9eaf0");
 
-    .card-icon {
-      width: 46px;
-      height: 46px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, var(--mpc-cyan), var(--mpc-cyan-dark));
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 22px;
-      margin-bottom: 12px;
-      box-shadow: 0 12px 24px rgba(18,184,212,0.28);
-    }
+  body.appendParagraph("Time Summary")
+    .setHeading(DocumentApp.ParagraphHeading.HEADING2);
 
-    .check-row {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
-      padding: 14px;
-      border: 1px solid #dce5ea;
-      background: #f8fbfc;
-      border-radius: 16px;
-      margin-bottom: 10px;
-    }
+  body.appendTable([
+    ["Job Accepted", formatDateTimeForReport(details.statusRow[5])],
+    ["Travel Started", formatDateTimeForReport(details.statusRow[6])],
+    ["Arrived On Site", formatDateTimeForReport(details.statusRow[7])],
+    ["Work Started", formatDateTimeForReport(details.statusRow[8])],
+    ["Completed", formatDateTimeForReport(details.statusRow[12])],
+    [
+      "Calculated Travel Time",
+      durationBetween(details.statusRow[6], details.statusRow[7])
+    ],
+    [
+      "Calculated On-Site Time",
+      durationBetween(details.statusRow[7], details.statusRow[12])
+    ],
+    [
+      "Elapsed Time From Work Start",
+      durationBetween(details.statusRow[8], details.statusRow[12])
+    ]
+  ]);
 
-    .check-title { font-weight: 900; color: var(--mpc-charcoal); }
-    .check-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .radio-pill input { display: none; }
-    .radio-pill span {
-      display: block;
-      padding: 12px;
-      border: 2px solid #d9e2e8;
-      border-radius: 12px;
-      text-align: center;
-      font-weight: 900;
-      cursor: pointer;
-      background: #fff;
-    }
-    .radio-pill input:checked + span.ok { border-color: var(--mpc-success); background: #dcfce7; color: #166534; }
-    .radio-pill input:checked + span.defect { border-color: var(--mpc-danger); background: #fee2e2; color: #991b1b; }
+  body.appendParagraph("Job Timeline")
+    .setHeading(DocumentApp.ParagraphHeading.HEADING2);
 
-    .document-link {
-      display: block;
-      padding: 14px;
-      background: var(--mpc-light);
-      border: 1px solid #dce5ea;
-      border-left: 5px solid var(--mpc-cyan);
-      border-radius: 14px;
-      text-decoration: none;
-      color: var(--mpc-charcoal);
-      font-weight: 800;
-      margin-bottom: 10px;
-    }
-
-    .job-header {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-      border-bottom: 1px solid #e6eef2;
-      padding-bottom: 12px;
-      margin-bottom: 12px;
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: #e8f8fb;
-      color: var(--mpc-cyan-dark);
-      font-size: 12px;
-      font-weight: 900;
-    }
-
-    .workflow-panel { margin-top:16px; }
-    .workflow-list { display:grid; gap:12px; margin-top:16px; }
-    .workflow-step { display:grid; grid-template-columns:46px 1fr auto; gap:12px; align-items:center; padding:14px; border:1px solid #dce5ea; border-radius:16px; background:#f8fbfc; }
-    .workflow-step.complete { background:#f0fdf4; border-color:#bbf7d0; }
-    .workflow-icon { width:42px; height:42px; border-radius:14px; display:flex; align-items:center; justify-content:center; background:#e8f8fb; font-size:21px; }
-    .workflow-copy strong { display:block; color:var(--mpc-charcoal); font-size:14px; margin-bottom:3px; }
-    .workflow-copy span { display:block; color:var(--mpc-slate); font-size:12px; font-weight:700; }
-    .workflow-action { border:none; border-radius:12px; padding:10px 12px; font-weight:900; cursor:pointer; background:var(--mpc-cyan); color:#fff; white-space:nowrap; }
-    .workflow-action.secondary { background:#eef6f8; color:var(--mpc-charcoal); }
-    .section-intro { background:#eef9fb; border:1px solid #cceef3; border-radius:14px; padding:12px 14px; margin-bottom:14px; color:var(--mpc-charcoal); font-weight:800; font-size:13px; }
-    .form-grid { display:grid; grid-template-columns:1fr; gap:12px; }
-    @media (min-width:700px){ .form-grid { grid-template-columns:1fr 1fr; } }
-    .tracking-card {
-      margin-top: 16px;
-      padding: 16px;
-      border-radius: 18px;
-      border: 1px solid #dce5ea;
-      background: #f8fbfc;
-    }
-    .tracking-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 12px;
-    }
-    .tracking-actions .button {
-      margin-top: 0;
-      padding: 12px;
-      font-size: 13px;
-    }
-    .status-badge {
-      display: inline-block;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: #e8f8fb;
-      color: var(--mpc-cyan-dark);
-      font-size: 12px;
-      font-weight: 900;
-    }
-    .delay-box {
-      margin-top: 14px;
-      border-top: 1px solid #dce5ea;
-      padding-top: 14px;
-    }
-    @media (min-width: 700px) {
-      .tracking-actions { grid-template-columns: repeat(4, 1fr); }
-    }
-
-    .qf76-list{display:grid;gap:10px;margin-top:14px}
-    .qf76-item{border:1px solid #dce5ea;border-radius:14px;padding:12px;background:#f8fbfc}
-    .qf76-item-title{color:var(--mpc-charcoal);font-weight:800;font-size:13px;line-height:1.4;margin-bottom:10px}
-    .qf76-options{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-    .qf76-options label{margin:0}
-    .qf76-options input{display:none}
-    .qf76-options span{display:block;padding:10px 8px;border:2px solid #d9e2e8;border-radius:10px;text-align:center;background:#fff;cursor:pointer;font-size:12px;font-weight:900}
-    .qf76-options input:checked+span{border-color:var(--mpc-cyan);background:#e8f8fb;color:var(--mpc-cyan-dark)}
-    .qf76-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
-
-    .document-hub-item{border:1px solid #dce5ea;border-radius:16px;background:#f8fbfc;padding:14px;margin-bottom:12px}
-    .document-hub-title{color:var(--mpc-charcoal);font-weight:900;overflow-wrap:anywhere}
-    .document-hub-meta{color:var(--mpc-slate);font-size:12px;font-weight:700;margin-top:5px}
-    .document-hub-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}
-    .document-hub-actions .button{margin-top:0;padding:11px;font-size:13px}
-    @media(min-width:600px){.document-hub-actions{grid-template-columns:1fr 1fr}}
-
-    footer { text-align: center; padding: 18px; color: rgba(255,255,255,0.78); font-size: 12px; font-weight: 700; }
-
-    @media (min-width: 700px) {
-      .status-grid { grid-template-columns: repeat(4, 1fr); }
-      .card-grid { grid-template-columns: repeat(3, 1fr); }
-      .job-grid { grid-template-columns: 1.1fr .9fr; }
-      .check-row { grid-template-columns: 1.2fr .8fr; align-items: center; }
-    }
-  </style>
-</head>
-
-<body>
-  <div class="app-header">
-    <div class="header-badge">Operative Portal</div>
-    <h1>ManPowerConnections Portal</h1>
-    <div class="header-sub">Sign In • Vehicle Checks • Job Packs • Evidence Uploads</div>
-    <div class="header-date" id="headerDate"></div>
-  </div>
-
-  <div class="logo-section">
-    <img src="manpower.png" alt="ManPowerConnections Logo">
-  </div>
-
-  <main>
-    <section id="loginView" class="login-shell panel">
-      <h2 class="center">Operative Login</h2>
-      <p class="center">Select your name and enter your PIN to access today’s work.</p>
-
-      <label for="operativeSelect">Operative</label>
-      <select id="operativeSelect">
-        <option value="">Select your name...</option>
-      </select>
-
-      <label for="pinInput">PIN</label>
-      <input id="pinInput" type="password" inputmode="numeric" placeholder="Enter your PIN" />
-
-      <button class="button" onclick="loginOperative()">Login</button>
-      <div id="loginMessage"></div>
-    </section>
-
-    <section id="dashboardView" class="hidden">
-      <div class="panel">
-        <div class="job-header">
-          <div>
-            <h2 id="welcomeTitle">Welcome</h2>
-            <p id="jobSummary">Today’s work is loaded automatically from your Google Drive folder.</p>
-          </div>
-          <button class="button secondary" style="width:auto; min-width:130px; margin-top:0;" onclick="logoutOperative()">Logout</button>
-        </div>
-
-        <div class="status-grid">
-          <div class="status-tile" id="statusLogin">✅ Signed In <span id="signedInTime"></span></div>
-          <div class="status-tile" id="statusVan">⬜ Van Check <span>Required before job access</span></div>
-          <div class="status-tile locked" id="statusDocs">🔒 Job Pack <span>Locked</span></div>
-          <div class="status-tile locked" id="statusEvidence">🔒 Evidence <span>Locked</span></div>
-        </div>
-      </div>
-
-      <div id="vanCheckView" class="panel" style="margin-top:16px;">
-        <h2>Daily Van Check</h2>
-        <p>You must complete and submit your vehicle check before you can access job packs, RAMS or upload photo evidence.</p>
-
-        <label for="vehicleReg">Vehicle Registration</label>
-        <input id="vehicleReg" type="text" placeholder="Vehicle registration" />
-
-        <label for="vehicleMileage">Current Vehicle Mileage</label>
-        <input
-          id="vehicleMileage"
-          type="number"
-          inputmode="numeric"
-          min="0"
-          step="1"
-          placeholder="Enter the current mileage"
-        />
-
-        <div id="vanChecks"></div>
-
-        <label for="vanCheckNotes">Notes / Defects</label>
-        <textarea id="vanCheckNotes" placeholder="Add notes here. If any item is marked Defect, notes are required."></textarea>
-
-        <button class="button" onclick="submitVanCheck()">Submit Van Check & Unlock Job Pack</button>
-        <div id="vanCheckMessage"></div>
-      </div>
-
-      <div id="jobAccessView" class="hidden" style="margin-top:16px;">
-        <div class="panel">
-          <div class="job-header"><div><h2 style="margin-bottom:4px;">Today&apos;s Jobs</h2><p style="margin:0;">Today’s jobs and documents are loaded automatically from your dated Google Drive folder.</p></div><span class="pill" id="jobCountPill">0 Jobs</span></div>
-          <div id="jobsList" class="card-grid"></div>
-        </div>
-
-        <div id="jobWorkflowPanel" class="panel workflow-panel hidden">
-          <div class="job-header"><div><h2 id="workflowJobTitle" style="margin-bottom:4px;">Job Workflow</h2><p id="workflowJobSubtitle" style="margin:0;">Complete the required sections for this job.</p></div><span class="pill" id="workflowProgressPill">1 of 8 Complete</span></div>
-          <div class="tracking-card">
-            <div class="job-header" style="margin-bottom:0;">
-              <div>
-                <strong style="display:block; color:var(--mpc-charcoal);">Job Time &amp; Status</strong>
-                <span id="jobTrackingStatus" class="status-badge" style="margin-top:8px;">Not Accepted</span>
-              </div>
-              <span id="jobTrackingTime" class="small-note"></span>
-            </div>
-
-            <div class="tracking-actions">
-              <button id="jobAction_accept" class="button job-action-button" onclick="performJobAction('accept')">Accept Job</button>
-              <button id="jobAction_startTravel" class="button job-action-button" onclick="performJobAction('startTravel')">Start Travel</button>
-              <button id="jobAction_arriveOnSite" class="button job-action-button" onclick="performJobAction('arriveOnSite')">Arrive On Site</button>
-              <button id="jobAction_startWork" class="button job-action-button" onclick="performJobAction('startWork')">Start Work</button>
-              <button id="jobAction_pause" class="button secondary job-action-button" onclick="performJobAction('pause')">Pause</button>
-              <button id="jobAction_resume" class="button secondary job-action-button" onclick="performJobAction('resume')">Resume</button>
-              <button id="jobAction_pauseOvernight" class="button secondary job-action-button" onclick="performJobAction('pauseOvernight')">Pause Until Tomorrow</button>
-              <button id="jobAction_complete" class="button danger job-action-button" onclick="performJobAction('complete')">Complete Job</button>
-            </div>
-
-            <div class="delay-box">
-              <h3 style="margin-bottom:6px;">Lost Time / Delay Timer</h3>
-              <p style="margin-top:0;">Start the timer when the delay begins and end it once the issue is resolved.</p>
-
-              <div id="delayInactiveView">
-                <label for="delayReason">Delay Reason</label>
-                <select id="delayReason">
-                  <option value="">Select reason...</option>
-                  <option>Plant Breakdown</option>
-                  <option>Awaiting Materials</option>
-                  <option>Awaiting Traffic Management</option>
-                  <option>Awaiting Access</option>
-                  <option>Awaiting Instructions</option>
-                  <option>Utility Conflict</option>
-                  <option>Weather</option>
-                  <option>Permit Delay</option>
-                  <option>Customer Delay</option>
-                  <option>Other</option>
-                </select>
-
-                <label for="delayNotes">Start Notes</label>
-                <textarea id="delayNotes" placeholder="Explain the cause of the delay..."></textarea>
-
-                <button id="startDelayButton" class="button secondary" onclick="startDelayTimer()">Start Delay</button>
-              </div>
-
-              <div id="delayActiveView" class="hidden">
-                <div class="completion-banner" style="background:#fef3c7;color:#92400e;">
-                  <strong>Delay Active</strong><br>
-                  <span id="activeDelayReason"></span><br>
-                  Started: <span id="activeDelayStarted"></span><br>
-                  Elapsed: <span id="activeDelayElapsed">00:00:00</span>
-                </div>
-
-                <label for="delayEndNotes">End Notes</label>
-                <textarea id="delayEndNotes" placeholder="Explain how the issue was resolved..."></textarea>
-
-                <button id="endDelayButton" class="button danger" onclick="endDelayTimer()">End Delay</button>
-              </div>
-
-              <div id="trackingMessage"></div>
-            </div>
-          </div>
-
-          <div class="workflow-list">
-            <div class="workflow-step complete"><div class="workflow-icon">🚐</div><div class="workflow-copy"><strong>Vehicle Inspection</strong><span>Completed before job access</span></div><button class="workflow-action secondary" disabled>Complete</button></div>
-            <div class="workflow-step"><div class="workflow-icon">📂</div><div class="workflow-copy"><strong>Document &amp; Forms Hub</strong><span>Open documents or complete recognised forms live</span></div><button class="workflow-action" onclick="showWorkflowSection('documentsPanel')">Open</button></div>
-            <div class="workflow-step" id="stepRiskAssessment"><div class="workflow-icon">⚠️</div><div class="workflow-copy"><strong>Daily Risk Assessment</strong><span>Record site conditions and changes</span></div><button class="workflow-action" onclick="showWorkflowSection('riskAssessmentPanel')">Complete</button></div>
-            <div class="workflow-step" id="stepPermit"><div class="workflow-icon">⛏️</div><div class="workflow-copy"><strong>Permit to Dig</strong><span>Confirm service detection and controls</span></div><button class="workflow-action" onclick="showWorkflowSection('permitPanel')">Complete</button></div>
-            <div class="workflow-step" id="stepRams"><div class="workflow-icon">📄</div><div class="workflow-copy"><strong>RAMS – Read and Sign</strong><span>Confirm RAMS have been read</span></div><button class="workflow-action" onclick="showWorkflowSection('ramsPanel')">Open</button></div>
-            <div class="workflow-step" id="stepWorkInstruction"><div class="workflow-icon">📋</div><div class="workflow-copy"><strong>Work Instruction – Read and Sign</strong><span>Review the job-specific instruction</span></div><button class="workflow-action" onclick="showWorkflowSection('workInstructionPanel')">Open</button></div>
-            <div class="workflow-step" id="stepPlant"><div class="workflow-icon">🚜</div><div class="workflow-copy"><strong>Plant Check Sheets</strong><span>Record plant used onsite</span></div><button class="workflow-action" onclick="showWorkflowSection('plantChecksPanel')">Open</button></div>
-            <div class="workflow-step" id="stepEvidence"><div class="workflow-icon">📷</div><div class="workflow-copy"><strong>Completion Paperwork &amp; Photo Evidence</strong><span>Upload completion photos</span></div><button class="workflow-action" onclick="showWorkflowSection('evidencePanel')">Upload</button></div>
-            <div class="workflow-step" id="stepFinish"><div class="workflow-icon">✅</div><div class="workflow-copy"><strong>Final Job Sign-Off</strong><span>Confirm all work and paperwork are complete</span></div><button class="workflow-action" onclick="showWorkflowSection('finishJobPanel')">Finish</button></div>
-          </div>
-        </div>
-
-        <div class="job-grid" style="margin-top:16px;">
-          <div id="documentsPanel" class="panel hidden"><h2>Document &amp; Forms Hub</h2><div id="documentsSelectedJob" class="pill" style="margin-bottom:14px;"></div><p id="documentsIntro">Only documents linked to the selected job are shown.</p><div id="documentList"></div></div>
-          <div id="riskAssessmentPanel" class="panel hidden"><h2>Daily Risk Assessment</h2><div class="section-intro">Complete before work starts and again if site conditions change.</div><div class="form-grid"><div><label for="riskWeather">Weather Conditions</label><select id="riskWeather"><option value="">Select...</option><option>Dry</option><option>Wet</option><option>High Winds</option><option>Snow / Ice</option></select></div><div><label for="riskServices">Underground Services Located?</label><select id="riskServices"><option value="">Select...</option><option>Yes</option><option>No</option><option>Not Applicable</option></select></div></div><label for="riskNotes">Hazards / Controls / Comments</label><textarea id="riskNotes"></textarea><button class="button" onclick="saveLocalWorkflowStep('riskAssessment')">Save Risk Assessment</button><div id="riskAssessmentMessage"></div></div>
-          <div id="permitPanel" class="panel hidden"><h2>Permit to Dig</h2><div class="section-intro">Confirm service-location and excavation controls.</div><div class="form-grid"><div><label for="permitNumber">Permit Number</label><input id="permitNumber" type="text"></div><div><label for="permitScan">CAT &amp; Genny Scan Completed?</label><select id="permitScan"><option value="">Select...</option><option>Yes</option><option>No</option></select></div><div><label for="permitMarked">Services Marked?</label><select id="permitMarked"><option value="">Select...</option><option>Yes</option><option>No</option></select></div></div><label for="permitNotes">Permit Notes</label><textarea id="permitNotes"></textarea><button class="button" onclick="saveLocalWorkflowStep('permit')">Save Permit to Dig</button><div id="permitMessage"></div></div>
-          <div id="ramsPanel" class="panel hidden"><h2>RAMS – Read and Sign</h2><div class="section-intro">Open the RAMS from the job pack and confirm below.</div><label><input id="ramsConfirm" type="checkbox" style="width:auto;margin-right:8px;"> I have read and understood the RAMS.</label><label for="ramsSignature">Full Name</label><input id="ramsSignature" type="text"><button class="button" onclick="saveLocalWorkflowStep('rams')">Confirm RAMS Sign-Off</button><div id="ramsMessage"></div></div>
-          <div id="workInstructionPanel" class="panel hidden"><h2>Work Instruction – Read and Sign</h2><div class="section-intro">Review the work instruction in the job pack.</div><label><input id="workInstructionConfirm" type="checkbox" style="width:auto;margin-right:8px;"> I have read and understood the work instruction.</label><label for="workInstructionSignature">Full Name</label><input id="workInstructionSignature" type="text"><button class="button" onclick="saveLocalWorkflowStep('workInstruction')">Confirm Work Instruction</button><div id="workInstructionMessage"></div></div>
-          <div id="liveFormPanel" class="panel hidden">
-            <div class="job-header">
-              <div>
-                <h2 id="liveFormTitle">Live Form</h2>
-                <p id="liveFormSubtitle" style="margin:0;"></p>
-              </div>
-              <span id="liveFormStatusPill" class="pill">Not Started</span>
-            </div>
-
-            <div id="liveFormSourceDocument" class="section-intro hidden"></div>
-            <div id="liveFormContents"></div>
-
-            <div class="qf76-actions">
-              <button id="liveFormDraftButton" class="button secondary" onclick="saveCurrentLiveForm(false)">Save Draft</button>
-              <button id="liveFormSubmitButton" class="button" onclick="saveCurrentLiveForm(true)">Submit Final</button>
-            </div>
-
-            <div id="liveFormMessage"></div>
-          </div>
-          <div id="plantChecksPanel" class="panel hidden"><h2>Plant Check Sheets</h2><div class="section-intro">Select the plant used. Detailed checklists can be added when the client supplies the final forms.</div><label for="plantTypeSelect">Plant / Equipment</label><select id="plantTypeSelect"><option value="">Select...</option><option>Excavator</option><option>Dumper</option><option>Generator</option><option>Petrol Cut-Off Saw</option><option>CAT &amp; Genny</option><option>Cable Winch</option><option>Other</option></select><label for="plantIdentifier">Plant ID / Serial Number</label><input id="plantIdentifier" type="text"><label for="plantNotes">Notes / Defects</label><textarea id="plantNotes"></textarea><button class="button" onclick="saveLocalWorkflowStep('plant')">Save Plant Check</button><div id="plantMessage"></div></div>
-          <div id="evidencePanel" class="panel hidden"><h2>Completion Paperwork &amp; Photo Evidence</h2><div id="evidenceSelectedJob" class="pill" style="margin-bottom:14px;"></div><p>Photos upload into the selected job’s Photo Evidence subfolder.</p><label for="evidencePhotos">Photos</label><input id="evidencePhotos" type="file" accept="image/*" multiple><label for="evidenceNotes">Completion Notes</label><textarea id="evidenceNotes"></textarea><button id="evidenceSubmitButton" class="button" onclick="submitEvidence()">Submit Evidence</button><div id="evidenceMessage"></div></div>
-          <div id="finishJobPanel" class="panel hidden"><h2>Final Job Sign-Off</h2><div class="section-intro">Confirm all work, paperwork and evidence are complete.</div><label><input id="finishWorkComplete" type="checkbox" style="width:auto;margin-right:8px;"> Physical work completed.</label><label><input id="finishPaperworkComplete" type="checkbox" style="width:auto;margin-right:8px;"> Required paperwork completed.</label><label><input id="finishPhotosComplete" type="checkbox" style="width:auto;margin-right:8px;"> Completion photos uploaded.</label><label for="finishSignature">Full Name</label><input id="finishSignature" type="text"><button class="button" onclick="saveLocalWorkflowStep('finish')">Complete Job</button><div id="finishMessage"></div></div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <footer>© 2026 ManPowerConnections</footer>
-
-  <script>
-    const DEMO_MODE = false;
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx1WjCF-C-qliIWdeXL_btSRDH6gCejZUt0PdG4ggEuzrW3vnedxD23mJq5svWlrgUZ/exec";
-
-    const headerDate = document.getElementById("headerDate");
-    const today = new Date();
-    const options = { day: "numeric", month: "short", year: "numeric" };
-    headerDate.textContent = today.toLocaleDateString("en-GB", options);
-
-    const vanCheckItems = [
-      "Oil level checked",
-      "Coolant level checked",
-      "Lights and indicators working",
-      "Tyres checked and roadworthy",
-      "Mirrors and windows clean/damage free",
-      "Horn working",
-      "Wipers and washers working",
-      "No visible leaks",
-      "Van secure and fit for work"
+  if (details.timeLogs.length === 0) {
+    body.appendParagraph("No time-log entries were found.");
+  } else {
+    const timelineData = [
+      ["Timestamp", "Action", "Delay Reason", "Duration", "Notes"]
     ];
 
-    let currentOperative = null;
-    let selectedJob = null;
-    let vanCheckComplete = false;
-    let jobTracking = {};
-    let currentJobTracking = null;
-    let jobActionInProgress = false;
-    let activeDelay = null;
-    let delayTimerInterval = null;
-    let delayActionInProgress = false;
-    let formTemplates = [];
-    let currentLiveFormSourceDocument = null;
+    details.timeLogs.forEach(row => {
+      const delayMinutes = Number(row[11] || 0);
 
-    async function apiPost(payload) {
-      const response = await fetch(WEB_APP_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "text/plain;charset=utf-8"
-        },
-        body: JSON.stringify(payload)
+      timelineData.push([
+        formatDateTimeForReport(row[0]),
+        String(row[4] || ""),
+        String(row[5] || ""),
+        delayMinutes
+          ? Math.floor(delayMinutes / 60) + "h " +
+            (delayMinutes % 60) + "m"
+          : "",
+        String(row[6] || "")
+      ]);
+    });
+
+    body.appendTable(timelineData);
+  }
+
+  body.appendParagraph("Reported Delays / Lost Time")
+    .setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+  const delays = details.timeLogs.filter(row =>
+    String(row[4] || "").trim() === "Delay Completed"
+  );
+
+  if (delays.length === 0) {
+    body.appendParagraph("No delays were reported.");
+  } else {
+    const totalDelayMinutes = delays.reduce(
+      (sum, row) => sum + Number(row[11] || 0),
+      0
+    );
+
+    body.appendParagraph(
+      "Total recorded lost time: " +
+      Math.floor(totalDelayMinutes / 60) +
+      "h " +
+      (totalDelayMinutes % 60) +
+      "m"
+    );
+
+    const delayData = [
+      ["Start", "End", "Duration", "Reason", "Notes"]
+    ];
+
+    delays.forEach(row => {
+      const minutes = Number(row[11] || 0);
+
+      delayData.push([
+        formatDateTimeForReport(row[9] || row[0]),
+        formatDateTimeForReport(row[10]),
+        Math.floor(minutes / 60) + "h " + (minutes % 60) + "m",
+        String(row[5] || ""),
+        String(row[6] || "")
+      ]);
+    });
+
+    body.appendTable(delayData);
+  }
+
+  body.appendParagraph("Photo Evidence")
+    .setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+  if (details.photoRows.length === 0) {
+    body.appendParagraph("No uploaded photo evidence was found.");
+  } else {
+    const photoData = [
+      ["Timestamp", "File", "Drive Link", "Notes"]
+    ];
+
+    details.photoRows.forEach(row => {
+      photoData.push([
+        String(row[1] || ""),
+        String(row[5] || ""),
+        String(row[6] || ""),
+        String(row[7] || "")
+      ]);
+    });
+
+    body.appendTable(photoData);
+  }
+
+  body.appendParagraph("Declaration")
+    .setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+  body.appendParagraph(
+    "The operative has confirmed that the job and the required " +
+    "paperwork have been completed and has submitted the above " +
+    "completion signature."
+  );
+
+  body.appendTable([
+    ["Operative", details.operative || ""],
+    ["Signature / Full Name", details.signature || ""],
+    ["Date and Time", formatDateTimeForReport(details.statusRow[12])]
+  ]);
+
+  doc.saveAndClose();
+
+  const docFile = DriveApp.getFileById(doc.getId());
+  const pdfBlob = docFile
+    .getAs(MimeType.PDF)
+    .setName(reportName + ".pdf");
+
+  const pdfFile = completedFolder.createFile(pdfBlob);
+
+  // The Google Doc is only a temporary file used to create the PDF.
+  docFile.setTrashed(true);
+
+  return pdfFile;
+}
+
+
+function isDuplicateRecentJobAction(jobId, actionLabel, secondsWindow) {
+  const sheet = getJobTimeLogSheet();
+  const values = sheet.getDataRange().getValues();
+  const cutoff = Date.now() - (secondsWindow * 1000);
+
+  for (let i = values.length - 1; i >= 1; i--) {
+    const row = values[i];
+    const rowJobId = String(row[2] || "").trim();
+    const rowAction = String(row[4] || "").trim();
+    const rowTime = row[0] instanceof Date
+      ? row[0].getTime()
+      : new Date(row[0]).getTime();
+
+    if (rowJobId !== String(jobId || "").trim()) {
+      continue;
+    }
+
+    if (rowAction === actionLabel && rowTime >= cutoff) {
+      return true;
+    }
+
+    // Once we encounter a different recent action for the same job,
+    // stop checking older rows.
+    if (rowTime >= cutoff) {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+
+function updateJobStatus(data) {
+  const operative = String(data.name || data.operative || "").trim();
+  const jobName = String(data.jobName || "Unnamed Job").trim();
+  const folderId = extractDriveId(data.folderId);
+  const action = String(data.jobAction || "").trim();
+  const notes = String(data.notes || "").trim();
+  const completionSignature = String(
+    data.completionSignature || ""
+  ).trim();
+  const completionNotes = String(
+    data.completionNotes || notes || ""
+  ).trim();
+
+  if (!operative || !folderId || !action) {
+    return jsonResponse({
+      success: false,
+      message: "Operative, job folder and action are required"
+    });
+  }
+
+  if (action === "complete" && !completionSignature) {
+    return jsonResponse({
+      success: false,
+      message: "A completion signature or full name is required"
+    });
+  }
+
+  if (
+    action === "complete" &&
+    getActiveDelayRecord(makeJobId(operative, folderId))
+  ) {
+    return jsonResponse({
+      success: false,
+      message: "End the active delay before completing the job"
+    });
+  }
+
+  if (action === "startWork") {
+    const gate = buildDocumentGate(operative, folderId);
+
+    if (!gate.complete) {
+      return jsonResponse({
+        success: false,
+        message:
+          "Acknowledge all required RAMS and work instructions before starting work"
       });
+    }
+  }
 
-      if (!response.ok) {
-        throw new Error("Apps Script connection failed");
-      }
+  const statusMap = {
+    accept: "Accepted",
+    startTravel: "Travelling",
+    arriveOnSite: "On Site",
+    startWork: "In Progress",
+    pause: "Paused",
+    resume: "In Progress",
+    pauseOvernight: "Paused Overnight",
+    complete: "Completed"
+  };
 
-      const data = await response.json();
+  if (!statusMap[action]) {
+    return jsonResponse({
+      success: false,
+      message: "Unknown job action: " + action
+    });
+  }
 
-      if (data && data.success === false) {
-        throw new Error(data.message || "The request could not be completed.");
-      }
+  const jobId = makeJobId(operative, folderId);
+  const actionLabel = statusMap[action];
 
-      return data;
+  if (isDuplicateRecentJobAction(jobId, actionLabel, 10)) {
+    return jsonResponse({
+      success: true,
+      duplicateIgnored: true,
+      message: "Duplicate press ignored",
+      status: actionLabel,
+      jobId: jobId,
+      timestamp: nowUKText()
+    });
+  }
+
+  const statusSheet = getJobStatusSheet();
+  const timeLogSheet = getJobTimeLogSheet();
+  const rowNumber = findJobStatusRow(statusSheet, jobId);
+  const now = new Date();
+
+  let row;
+
+  if (rowNumber === -1) {
+    row = [
+      jobId,
+      operative,
+      jobName,
+      folderId,
+      statusMap[action],
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      now,
+      "",
+      "",
+      ""
+    ];
+  } else {
+    row = statusSheet.getRange(
+      rowNumber,
+      1,
+      1,
+      17
+    ).getValues()[0];
+
+    while (row.length < 17) {
+      row.push("");
     }
 
-    function safeText(value) {
-      return String(value || "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+    row[4] = statusMap[action];
+    row[13] = now;
+  }
+
+  if (action === "accept" && !row[5]) row[5] = now;
+  if (action === "startTravel") row[6] = now;
+  if (action === "arriveOnSite") row[7] = now;
+  if (action === "startWork" && !row[8]) row[8] = now;
+  if (action === "pause") row[9] = now;
+  if (action === "resume") row[10] = now;
+  if (action === "pauseOvernight") row[11] = now;
+  if (action === "complete") {
+    row[12] = now;
+    row[14] = completionSignature;
+    row[15] = completionNotes;
+  }
+
+  if (rowNumber === -1) {
+    statusSheet.appendRow(row);
+  } else {
+    statusSheet
+      .getRange(rowNumber, 1, 1, row.length)
+      .setValues([row]);
+  }
+
+  timeLogSheet.appendRow([
+    now,
+    operative,
+    jobId,
+    jobName,
+    statusMap[action],
+    "",
+    action === "complete" ? completionNotes : notes,
+    folderId,
+    "",
+    "",
+    "",
+    ""
+  ]);
+
+  let pdfUrl = "";
+
+  if (action === "complete") {
+    const timeLogs = getJobTimeLogRows(jobId);
+    const photoRows = getJobPhotoRows(
+      operative,
+      jobName,
+      folderId
+    );
+
+    const pdfFile = generateCompletionPdf({
+      operative: operative,
+      jobName: jobName,
+      folderId: folderId,
+      jobId: jobId,
+      signature: completionSignature,
+      completionNotes: completionNotes,
+      statusRow: row,
+      timeLogs: timeLogs,
+      photoRows: photoRows
+    });
+
+    pdfUrl = pdfFile.getUrl();
+    row[16] = pdfUrl;
+
+    const savedRowNumber = rowNumber === -1
+      ? statusSheet.getLastRow()
+      : rowNumber;
+
+    statusSheet
+      .getRange(savedRowNumber, 1, 1, row.length)
+      .setValues([row]);
+  }
+
+  return jsonResponse({
+    success: true,
+    message: action === "complete"
+      ? "Job completed and PDF report generated"
+      : "Job status updated",
+    status: statusMap[action],
+    jobId: jobId,
+    timestamp: nowUKText(),
+    pdfUrl: pdfUrl
+  });
+}
+
+
+function getActiveDelayRecord(jobId) {
+  const sheet = getJobTimeLogSheet();
+  const values = sheet.getDataRange().getValues();
+
+  for (let i = values.length - 1; i >= 1; i--) {
+    const row = values[i];
+
+    if (String(row[2] || "").trim() !== String(jobId || "").trim()) {
+      continue;
     }
 
-    async function populateOperatives() {
-      const select = document.getElementById("operativeSelect");
-      select.innerHTML = `<option value="">Loading operatives...</option>`;
-
-      try {
-        const data = await apiPost({ action: "getOperatives" });
-
-        select.innerHTML = `<option value="">Select your name...</option>`;
-
-        (data.operatives || []).forEach(name => {
-          const option = document.createElement("option");
-          option.value = name;
-          option.textContent = name;
-          select.appendChild(option);
-        });
-
-        if (!data.operatives || data.operatives.length === 0) {
-          select.innerHTML = `<option value="">No active operatives found</option>`;
-        }
-
-      } catch (error) {
-        select.innerHTML = `<option value="">Could not load operatives</option>`;
-        document.getElementById("loginMessage").innerHTML =
-          `<div class="error">${safeText(error.message)}</div>`;
-        console.error(error);
-      }
-    }
-
-    function renderVanChecks() {
-      const container = document.getElementById("vanChecks");
-      container.innerHTML = vanCheckItems.map((item, index) => `
-        <div class="check-row">
-          <div class="check-title">${index + 1}. ${safeText(item)}</div>
-          <div class="check-options">
-            <label class="radio-pill">
-              <input type="radio" name="check_${index}" value="OK">
-              <span class="ok">OK</span>
-            </label>
-            <label class="radio-pill">
-              <input type="radio" name="check_${index}" value="Defect">
-              <span class="defect">Defect</span>
-            </label>
-          </div>
-        </div>
-      `).join("");
-    }
-
-    async function loginOperative() {
-      const selectedName = document.getElementById("operativeSelect").value;
-      const enteredPin = document.getElementById("pinInput").value.trim();
-      const message = document.getElementById("loginMessage");
-      const loginButton = document.querySelector("#loginView .button");
-
-      message.innerHTML = "";
-
-      if (!selectedName) {
-        message.innerHTML = `<div class="error">Please select your name.</div>`;
-        return;
-      }
-
-      if (!enteredPin) {
-        message.innerHTML = `<div class="error">Please enter your PIN.</div>`;
-        return;
-      }
-
-      loginButton.disabled = true;
-      loginButton.textContent = "Signing in...";
-
-      try {
-        const loginData = await apiPost({
-          action: "login",
-          name: selectedName,
-          pin: enteredPin
-        });
-
-        const dashboardData = await apiPost({
-          action: "getDashboard",
-          name: loginData.name
-        });
-
-        currentOperative = {
-          name: loginData.name,
-          vehicleReg: loginData.vehicle || "",
-          jobs: dashboardData.jobs || []
-        };
-
-        jobTracking = dashboardData.tracking || {};
-
-        try {
-          const templatesData = await apiPost({
-            action: "getFormTemplates"
-          });
-
-          formTemplates = templatesData.templates || [];
-
-          formTemplates.forEach(template => {
-            if (template.definition && template.formId) {
-              FORM_DEFINITIONS[template.formId] =
-                template.definition;
-            }
-          });
-        } catch (templateError) {
-          console.error("Could not load form templates", templateError);
-          formTemplates = [];
-        }
-
-        selectedJob = null;
-        vanCheckComplete = dashboardData.vanCheckComplete === true;
-
-        document.getElementById("loginView").classList.add("hidden");
-        document.getElementById("dashboardView").classList.remove("hidden");
-        document.getElementById("welcomeTitle").textContent = `Welcome ${currentOperative.name}`;
-
-        const jobCount = currentOperative.jobs.length;
-
-        if (jobCount === 1) {
-          document.getElementById("jobSummary").textContent =
-            "You have 1 active job assigned today.";
-        } else if (jobCount > 1) {
-          document.getElementById("jobSummary").textContent =
-            `You have ${jobCount} active jobs assigned today.`;
-        } else {
-          document.getElementById("jobSummary").textContent =
-            "No active jobs have been assigned to you today.";
-        }
-
-        document.getElementById("vehicleReg").value = currentOperative.vehicleReg;
-        document.getElementById("signedInTime").textContent =
-          new Date().toLocaleTimeString("en-GB", {
-            hour: "2-digit",
-            minute: "2-digit"
-          });
-
-        if (vanCheckComplete) {
-          unlockJobAccess();
-        } else {
-          lockJobAccess();
-        }
-
-        window.scrollTo({ top: 0, behavior: "smooth" });
-
-      } catch (error) {
-        message.innerHTML = `<div class="error">${safeText(error.message)}</div>`;
-        console.error(error);
-      } finally {
-        loginButton.disabled = false;
-        loginButton.textContent = "Login";
-      }
-    }
-
-    function lockJobAccess() {
-      document.getElementById("vanCheckView").classList.remove("hidden");
-      document.getElementById("jobAccessView").classList.add("hidden");
-      document.getElementById("statusVan").innerHTML =
-        `⬜ Van Check <span>Required before job access</span>`;
-      document.getElementById("statusDocs").classList.add("locked");
-      document.getElementById("statusEvidence").classList.add("locked");
-      document.getElementById("statusDocs").innerHTML =
-        `🔒 Job Pack <span>Locked</span>`;
-      document.getElementById("statusEvidence").innerHTML =
-        `🔒 Evidence <span>Locked</span>`;
-    }
-
-    function unlockJobAccess() {
-      vanCheckComplete = true;
-
-      document.getElementById("vanCheckView").classList.add("hidden");
-      document.getElementById("jobAccessView").classList.remove("hidden");
-      document.getElementById("statusVan").innerHTML =
-        `✅ Van Check <span>Complete today</span>`;
-      document.getElementById("statusDocs").classList.remove("locked");
-      document.getElementById("statusEvidence").classList.remove("locked");
-      document.getElementById("statusDocs").innerHTML =
-        `✅ Job Pack <span>Unlocked</span>`;
-      document.getElementById("statusEvidence").innerHTML =
-        `✅ Evidence <span>Unlocked</span>`;
-
-      renderJobs();
-    }
-
-    function updateTrackingDisplay() {
-      const statusEl = document.getElementById("jobTrackingStatus");
-      const timeEl = document.getElementById("jobTrackingTime");
-
-      if (!selectedJob || !statusEl) return;
-
-      const tracking = jobTracking[selectedJob.folderId] || {
-        status: "Not Accepted"
+    if (
+      String(row[4] || "").trim() === "Delay Started" &&
+      !row[10]
+    ) {
+      return {
+        rowNumber: i + 1,
+        delayId: String(row[8] || "").trim(),
+        reason: String(row[5] || "").trim(),
+        notes: String(row[6] || "").trim(),
+        start: row[9] || row[0]
       };
-
-      currentJobTracking = tracking;
-      statusEl.textContent = tracking.status || "Not Accepted";
-      timeEl.textContent = tracking.completedTime
-        ? `Completed: ${tracking.completedTime}`
-        : tracking.workStarted
-          ? `Work started: ${tracking.workStarted}`
-          : tracking.arrivedOnSite
-            ? `Arrived: ${tracking.arrivedOnSite}`
-            : tracking.travelStarted
-              ? `Travel started: ${tracking.travelStarted}`
-              : tracking.acceptedTime
-                ? `Accepted: ${tracking.acceptedTime}`
-                : "";
-
-      const message = document.getElementById("trackingMessage");
-
-      if (
-        message &&
-        tracking.completionPdfUrl &&
-        tracking.status === "Completed"
-      ) {
-        message.innerHTML =
-          `<div class="success">
-            This job is complete.<br><br>
-            <a href="${safeText(tracking.completionPdfUrl)}"
-               target="_blank"
-               rel="noopener"
-               style="color:#166534;font-weight:900;">
-              Open Completion PDF
-            </a>
-          </div>`;
-      }
     }
+  }
 
-    function setJobActionButtonsDisabled(disabled, activeAction) {
-      document.querySelectorAll(".job-action-button").forEach(button => {
-        button.disabled = disabled;
+  return null;
+}
 
-        if (disabled && button.id === `jobAction_${activeAction}`) {
-          button.dataset.originalText = button.textContent;
-          button.textContent = "Saving...";
-        } else if (!disabled && button.dataset.originalText) {
-          button.textContent = button.dataset.originalText;
-          delete button.dataset.originalText;
-        }
-      });
-    }
 
-    async function performJobAction(jobAction) {
-      if (!selectedJob || !currentOperative || jobActionInProgress) return;
+function getActiveDelay(data) {
+  const operative = String(data.name || data.operative || "").trim();
+  const folderId = extractDriveId(data.folderId);
 
-      const message = document.getElementById("trackingMessage");
-      message.innerHTML = "";
+  if (!operative || !folderId) {
+    return jsonResponse({
+      success: false,
+      message: "Operative and job folder are required"
+    });
+  }
 
-      jobActionInProgress = true;
-      setJobActionButtonsDisabled(true, jobAction);
+  const jobId = makeJobId(operative, folderId);
+  const activeDelay = getActiveDelayRecord(jobId);
 
-      let notes = "";
+  if (!activeDelay) {
+    return jsonResponse({
+      success: true,
+      active: false
+    });
+  }
 
-      if (jobAction === "pauseOvernight") {
-        notes = prompt(
-          "Please enter what has been completed today and what remains outstanding:"
-        ) || "";
+  const startDate = activeDelay.start instanceof Date
+    ? activeDelay.start
+    : new Date(activeDelay.start);
 
-        if (!notes.trim()) {
-          message.innerHTML =
-            `<div class="error">Please provide continuation notes before pausing until tomorrow.</div>`;
-          jobActionInProgress = false;
-      activeDelay = null;
-      delayActionInProgress = false;
-      currentLiveFormId="";
-      currentLiveFormStatus="";
-      currentLiveFormLoadedFolder="";
-      stopDelayTicker();
-          setJobActionButtonsDisabled(false);
-          return;
+  return jsonResponse({
+    success: true,
+    active: true,
+    delayId: activeDelay.delayId,
+    reason: activeDelay.reason,
+    notes: activeDelay.notes,
+    startTimestamp: startDate.toISOString(),
+    startDisplay: Utilities.formatDate(
+      startDate,
+      TIMEZONE,
+      "dd/MM/yyyy HH:mm:ss"
+    )
+  });
+}
+
+
+function startDelay(data) {
+  const operative = String(data.name || data.operative || "").trim();
+  const jobName = String(data.jobName || "Unnamed Job").trim();
+  const folderId = extractDriveId(data.folderId);
+  const reason = String(data.delayReason || "").trim();
+  const notes = String(data.notes || "").trim();
+
+  if (!operative || !folderId || !reason) {
+    return jsonResponse({
+      success: false,
+      message: "Operative, job folder and delay reason are required"
+    });
+  }
+
+  const jobId = makeJobId(operative, folderId);
+  const existingDelay = getActiveDelayRecord(jobId);
+
+  if (existingDelay) {
+    return jsonResponse({
+      success: false,
+      message: "A delay is already active for this job"
+    });
+  }
+
+  const now = new Date();
+  const delayId =
+    jobId + "_delay_" +
+    Utilities.formatDate(now, TIMEZONE, "yyyyMMddHHmmssSSS");
+
+  const sheet = getJobTimeLogSheet();
+
+  sheet.appendRow([
+    now,
+    operative,
+    jobId,
+    jobName,
+    "Delay Started",
+    reason,
+    notes,
+    folderId,
+    delayId,
+    now,
+    "",
+    ""
+  ]);
+
+  return jsonResponse({
+    success: true,
+    message: "Delay started",
+    delayId: delayId,
+    reason: reason,
+    startTimestamp: now.toISOString(),
+    startDisplay: nowUKText()
+  });
+}
+
+
+function endDelay(data) {
+  const operative = String(data.name || data.operative || "").trim();
+  const folderId = extractDriveId(data.folderId);
+  const endNotes = String(data.notes || "").trim();
+
+  if (!operative || !folderId) {
+    return jsonResponse({
+      success: false,
+      message: "Operative and job folder are required"
+    });
+  }
+
+  const jobId = makeJobId(operative, folderId);
+  const activeDelay = getActiveDelayRecord(jobId);
+
+  if (!activeDelay) {
+    return jsonResponse({
+      success: false,
+      message: "No active delay was found for this job"
+    });
+  }
+
+  const sheet = getJobTimeLogSheet();
+  const now = new Date();
+  const startDate = activeDelay.start instanceof Date
+    ? activeDelay.start
+    : new Date(activeDelay.start);
+
+  const delayMinutes = Math.max(
+    0,
+    Math.round((now.getTime() - startDate.getTime()) / 60000)
+  );
+
+  const combinedNotes = [
+    activeDelay.notes,
+    endNotes
+  ].filter(Boolean).join(" | End notes: ");
+
+  sheet.getRange(activeDelay.rowNumber, 1, 1, 12).setValues([[
+    startDate,
+    operative,
+    jobId,
+    String(
+      sheet.getRange(activeDelay.rowNumber, 4).getValue() || ""
+    ),
+    "Delay Completed",
+    activeDelay.reason,
+    combinedNotes,
+    folderId,
+    activeDelay.delayId,
+    startDate,
+    now,
+    delayMinutes
+  ]]);
+
+  return jsonResponse({
+    success: true,
+    message: "Delay ended",
+    reason: activeDelay.reason,
+    startDisplay: Utilities.formatDate(
+      startDate,
+      TIMEZONE,
+      "dd/MM/yyyy HH:mm:ss"
+    ),
+    endDisplay: nowUKText(),
+    delayMinutes: delayMinutes,
+    durationText:
+      Math.floor(delayMinutes / 60) + "h " +
+      (delayMinutes % 60) + "m"
+  });
+}
+
+
+
+/* =========================================================
+   DOCUMENT HUB / FORM TEMPLATE REGISTRY
+========================================================= */
+
+function getFormTemplatesSheet() {
+  const sheet = getOrCreateSheet(TAB_FORM_TEMPLATES, [
+    "Form ID",
+    "Title",
+    "Version",
+    "Filename Patterns",
+    "Definition JSON",
+    "Active"
+  ]);
+
+  if (sheet.getLastRow() < 2) {
+    sheet.appendRow([
+      "QF76",
+      "Secondary Substation Installation Checklist",
+      "Issue 2 - May 2026",
+      "QF76|QF 76|Secondary Substation Installation Checklist",
+      "",
+      "TRUE"
+    ]);
+
+    sheet.appendRow([
+      "QF112",
+      "Secondary Substation Earthing Test Form",
+      "Issue 1 - 15/02/2024",
+      "QF112|QF 112|Secondary Substation Earthing Test Form",
+      "",
+      "TRUE"
+    ]);
+  }
+
+  return sheet;
+}
+
+function getFormTemplates(data) {
+  const sheet = getFormTemplatesSheet();
+  const rows = sheet.getDataRange().getDisplayValues();
+
+  if (rows.length < 2) {
+    return jsonResponse({
+      success: true,
+      templates: []
+    });
+  }
+
+  const headers = rows.shift().map(normaliseHeader);
+  const formIdIndex = headers.indexOf("form id");
+  const titleIndex = headers.indexOf("title");
+  const versionIndex = headers.indexOf("version");
+  const patternsIndex = headers.indexOf("filename patterns");
+  const definitionIndex = headers.indexOf("definition json");
+  const activeIndex = headers.indexOf("active");
+
+  const templates = rows
+    .filter(row =>
+      activeIndex === -1 || isActive(row[activeIndex])
+    )
+    .map(row => {
+      let definition = null;
+      const rawDefinition = String(
+        row[definitionIndex] || ""
+      ).trim();
+
+      if (rawDefinition) {
+        try {
+          definition = JSON.parse(rawDefinition);
+        } catch (err) {
+          console.error(
+            "Invalid Definition JSON for " +
+            String(row[formIdIndex] || "")
+          );
         }
       }
 
-      let completionSignature = "";
-      let completionNotes = "";
+      return {
+        formId: String(row[formIdIndex] || "").trim(),
+        title: String(row[titleIndex] || "").trim(),
+        version: String(row[versionIndex] || "").trim(),
+        patterns: String(row[patternsIndex] || "")
+          .split("|")
+          .map(value => value.trim())
+          .filter(Boolean),
+        definition: definition
+      };
+    })
+    .filter(template => template.formId);
 
-      if (jobAction === "complete") {
-        if (activeDelay) {
-          message.innerHTML =
-            `<div class="error">End the active delay before completing the job.</div>`;
-          jobActionInProgress = false;
-          setJobActionButtonsDisabled(false);
-          return;
-        }
+  return jsonResponse({
+    success: true,
+    templates: templates
+  });
+}
 
-        const confirmed = confirm(
-          "Confirm that the job and all required paperwork are complete?"
-        );
 
-        if (!confirmed) {
-          jobActionInProgress = false;
-          setJobActionButtonsDisabled(false);
-          return;
-        }
+/* =========================================================
+   REQUIRED DOCUMENT ACKNOWLEDGEMENTS / START-WORK GATE
+========================================================= */
 
-        completionSignature = prompt(
-          "Enter your full name as your completion signature:"
-        ) || "";
+function getDocumentRequirementsSheet() {
+  const sheet = getOrCreateSheet(TAB_DOCUMENT_REQUIREMENTS, [
+    "Requirement ID",
+    "Title",
+    "Filename Patterns",
+    "Required Before Start",
+    "Active"
+  ]);
 
-        if (!completionSignature.trim()) {
-          message.innerHTML =
-            `<div class="error">A completion signature or full name is required.</div>`;
-          jobActionInProgress = false;
-          setJobActionButtonsDisabled(false);
-          return;
-        }
+  if (sheet.getLastRow() < 2) {
+    sheet.appendRow([
+      "RAMS",
+      "RAMS / Risk Assessment and Method Statement",
+      "RAMS|Risk Assessment and Method Statement|Method Statement",
+      "TRUE",
+      "TRUE"
+    ]);
 
-        completionNotes = prompt(
-          "Enter final completion notes, including any outstanding matters:"
-        ) || "";
-      }
+    sheet.appendRow([
+      "WORK_INSTRUCTION",
+      "Work Instruction",
+      "Work Instruction|Work Instructions",
+      "TRUE",
+      "TRUE"
+    ]);
+  }
 
-      try {
-        const data = await apiPost({
-          action: "updateJobStatus",
-          name: currentOperative.name,
-          jobName: selectedJob.jobName,
-          folderId: selectedJob.folderId,
-          jobAction: jobAction,
-          notes: notes,
-          completionSignature: completionSignature,
-          completionNotes: completionNotes
+  return sheet;
+}
+
+function getDocumentAcknowledgementsSheet() {
+  return getOrCreateSheet(TAB_DOCUMENT_ACKS, [
+    "Acknowledgement ID",
+    "Timestamp",
+    "Operative",
+    "Job ID",
+    "Job Name",
+    "Job Folder ID",
+    "Requirement ID",
+    "Requirement Title",
+    "Document ID",
+    "Document Name",
+    "Document URL",
+    "Acknowledgement Text"
+  ]);
+}
+
+function getActiveDocumentRequirements() {
+  const sheet = getDocumentRequirementsSheet();
+  const rows = sheet.getDataRange().getDisplayValues();
+
+  if (rows.length < 2) return [];
+
+  const headers = rows.shift().map(normaliseHeader);
+  const idIndex = headers.indexOf("requirement id");
+  const titleIndex = headers.indexOf("title");
+  const patternsIndex = headers.indexOf("filename patterns");
+  const requiredIndex = headers.indexOf("required before start");
+  const activeIndex = headers.indexOf("active");
+
+  return rows
+    .filter(row =>
+      (activeIndex === -1 || isActive(row[activeIndex])) &&
+      (requiredIndex === -1 || isActive(row[requiredIndex]))
+    )
+    .map(row => ({
+      id: String(row[idIndex] || "").trim(),
+      title: String(row[titleIndex] || "").trim(),
+      patterns: String(row[patternsIndex] || "")
+        .split("|")
+        .map(value => value.trim())
+        .filter(Boolean)
+    }))
+    .filter(item => item.id && item.patterns.length);
+}
+
+function documentMatchesRequirement(documentItem, requirement) {
+  const fileName = String(
+    documentItem.originalName ||
+    documentItem.name ||
+    ""
+  ).toLowerCase();
+
+  return requirement.patterns.some(pattern =>
+    fileName.includes(String(pattern || "").toLowerCase())
+  );
+}
+
+function getRequiredDocumentsForJob(jobFolder) {
+  const requirements = getActiveDocumentRequirements();
+  const documents = getJobDocuments(jobFolder, "", 3);
+  const required = [];
+
+  requirements.forEach(requirement => {
+    documents.forEach(documentItem => {
+      if (documentMatchesRequirement(documentItem, requirement)) {
+        required.push({
+          requirementId: requirement.id,
+          requirementTitle: requirement.title,
+          documentId: documentItem.id || "",
+          documentName:
+            documentItem.originalName ||
+            documentItem.name ||
+            "",
+          documentUrl: documentItem.url || "",
+          mimeType: documentItem.type || ""
         });
-
-        jobTracking[selectedJob.folderId] = {
-          ...(jobTracking[selectedJob.folderId] || {}),
-          status: data.status,
-          lastUpdated: data.timestamp
-        };
-
-        if (jobAction === "accept") {
-          jobTracking[selectedJob.folderId].acceptedTime = data.timestamp;
-        } else if (jobAction === "startTravel") {
-          jobTracking[selectedJob.folderId].travelStarted = data.timestamp;
-        } else if (jobAction === "arriveOnSite") {
-          jobTracking[selectedJob.folderId].arrivedOnSite = data.timestamp;
-        } else if (jobAction === "startWork") {
-          jobTracking[selectedJob.folderId].workStarted = data.timestamp;
-        } else if (jobAction === "pauseOvernight") {
-          jobTracking[selectedJob.folderId].pausedOvernight = data.timestamp;
-        } else if (jobAction === "complete") {
-          jobTracking[selectedJob.folderId].completedTime = data.timestamp;
-          jobTracking[selectedJob.folderId].completionPdfUrl =
-            data.pdfUrl || "";
-        }
-
-        updateTrackingDisplay();
-
-        if (jobAction === "complete" && data.pdfUrl) {
-          message.innerHTML =
-            `<div class="success">
-              Job completed at ${safeText(data.timestamp)}.<br><br>
-              <a href="${safeText(data.pdfUrl)}"
-                 target="_blank"
-                 rel="noopener"
-                 style="color:#166534;font-weight:900;">
-                Open Completion PDF
-              </a>
-            </div>`;
-        } else {
-          message.innerHTML =
-            `<div class="success">${safeText(data.status)} recorded at ${safeText(data.timestamp)}.</div>`;
-        }
-
-      } catch (error) {
-        message.innerHTML =
-          `<div class="error">${safeText(error.message)}</div>`;
-      } finally {
-        jobActionInProgress = false;
-        setJobActionButtonsDisabled(false);
       }
+    });
+  });
+
+  return required;
+}
+
+function getAcknowledgementKey(
+  operative,
+  folderId,
+  requirementId,
+  documentId,
+  documentName
+) {
+  return [
+    normaliseName(operative),
+    String(folderId || "").trim(),
+    String(requirementId || "").trim(),
+    String(documentId || documentName || "").trim()
+  ].join("|");
+}
+
+function getAcknowledgedDocumentKeys(operative, folderId) {
+  const sheet = getDocumentAcknowledgementsSheet();
+  const rows = sheet.getDataRange().getDisplayValues();
+  const keys = {};
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+
+    if (
+      normaliseName(row[2]) !== normaliseName(operative) ||
+      String(row[5] || "").trim() !== String(folderId || "").trim()
+    ) {
+      continue;
     }
 
-    function formatElapsedDuration(milliseconds) {
-      const totalSeconds = Math.max(
-        0,
-        Math.floor(milliseconds / 1000)
-      );
+    const key = getAcknowledgementKey(
+      operative,
+      folderId,
+      row[6],
+      row[8],
+      row[9]
+    );
 
-      const hours = Math.floor(totalSeconds / 3600);
-      const minutes = Math.floor((totalSeconds % 3600) / 60);
-      const seconds = totalSeconds % 60;
-
-      return [
-        String(hours).padStart(2, "0"),
-        String(minutes).padStart(2, "0"),
-        String(seconds).padStart(2, "0")
-      ].join(":");
-    }
-
-    function stopDelayTicker() {
-      if (delayTimerInterval) {
-        clearInterval(delayTimerInterval);
-        delayTimerInterval = null;
-      }
-    }
-
-    function updateDelayTicker() {
-      if (!activeDelay || !activeDelay.startTimestamp) {
-        return;
-      }
-
-      const startTime = new Date(
-        activeDelay.startTimestamp
-      ).getTime();
-
-      document.getElementById(
-        "activeDelayElapsed"
-      ).textContent = formatElapsedDuration(
-        Date.now() - startTime
-      );
-    }
-
-    function renderDelayState() {
-      const inactiveView = document.getElementById(
-        "delayInactiveView"
-      );
-      const activeView = document.getElementById(
-        "delayActiveView"
-      );
-
-      if (activeDelay) {
-        inactiveView.classList.add("hidden");
-        activeView.classList.remove("hidden");
-
-        document.getElementById(
-          "activeDelayReason"
-        ).textContent = activeDelay.reason || "";
-
-        document.getElementById(
-          "activeDelayStarted"
-        ).textContent = activeDelay.startDisplay || "";
-
-        stopDelayTicker();
-        updateDelayTicker();
-
-        delayTimerInterval = setInterval(
-          updateDelayTicker,
-          1000
-        );
-      } else {
-        stopDelayTicker();
-        activeView.classList.add("hidden");
-        inactiveView.classList.remove("hidden");
-
-        document.getElementById(
-          "activeDelayElapsed"
-        ).textContent = "00:00:00";
-      }
-    }
-
-    async function loadActiveDelay() {
-      if (!selectedJob || !currentOperative) {
-        return;
-      }
-
-      try {
-        const data = await apiPost({
-          action: "getActiveDelay",
-          name: currentOperative.name,
-          folderId: selectedJob.folderId
-        });
-
-        activeDelay = data.active ? {
-          delayId: data.delayId,
-          reason: data.reason,
-          notes: data.notes,
-          startTimestamp: data.startTimestamp,
-          startDisplay: data.startDisplay
-        } : null;
-
-        renderDelayState();
-      } catch (error) {
-        document.getElementById(
-          "trackingMessage"
-        ).innerHTML =
-          `<div class="error">${safeText(error.message)}</div>`;
-      }
-    }
-
-    async function startDelayTimer() {
-      if (
-        !selectedJob ||
-        !currentOperative ||
-        delayActionInProgress ||
-        activeDelay
-      ) {
-        return;
-      }
-
-      const reason = document.getElementById(
-        "delayReason"
-      ).value;
-
-      const notes = document.getElementById(
-        "delayNotes"
-      ).value.trim();
-
-      const message = document.getElementById(
-        "trackingMessage"
-      );
-
-      if (!reason) {
-        message.innerHTML =
-          `<div class="error">Please select a delay reason.</div>`;
-        return;
-      }
-
-      delayActionInProgress = true;
-      document.getElementById(
-        "startDelayButton"
-      ).disabled = true;
-      document.getElementById(
-        "startDelayButton"
-      ).textContent = "Starting...";
-
-      try {
-        const data = await apiPost({
-          action: "startDelay",
-          name: currentOperative.name,
-          jobName: selectedJob.jobName,
-          folderId: selectedJob.folderId,
-          delayReason: reason,
-          notes: notes
-        });
-
-        activeDelay = {
-          delayId: data.delayId,
-          reason: data.reason,
-          startTimestamp: data.startTimestamp,
-          startDisplay: data.startDisplay
-        };
-
-        document.getElementById("delayReason").value = "";
-        document.getElementById("delayNotes").value = "";
-
-        renderDelayState();
-
-        message.innerHTML =
-          `<div class="success">Delay timer started at ${safeText(data.startDisplay)}.</div>`;
-      } catch (error) {
-        message.innerHTML =
-          `<div class="error">${safeText(error.message)}</div>`;
-      } finally {
-        delayActionInProgress = false;
-        document.getElementById(
-          "startDelayButton"
-        ).disabled = false;
-        document.getElementById(
-          "startDelayButton"
-        ).textContent = "Start Delay";
-      }
-    }
-
-    async function endDelayTimer() {
-      if (
-        !selectedJob ||
-        !currentOperative ||
-        delayActionInProgress ||
-        !activeDelay
-      ) {
-        return;
-      }
-
-      const notes = document.getElementById(
-        "delayEndNotes"
-      ).value.trim();
-
-      const message = document.getElementById(
-        "trackingMessage"
-      );
-
-      const confirmed = confirm(
-        "End the current delay timer?"
-      );
-
-      if (!confirmed) {
-        return;
-      }
-
-      delayActionInProgress = true;
-      document.getElementById(
-        "endDelayButton"
-      ).disabled = true;
-      document.getElementById(
-        "endDelayButton"
-      ).textContent = "Ending...";
-
-      try {
-        const data = await apiPost({
-          action: "endDelay",
-          name: currentOperative.name,
-          folderId: selectedJob.folderId,
-          notes: notes
-        });
-
-        activeDelay = null;
-        document.getElementById(
-          "delayEndNotes"
-        ).value = "";
-
-        renderDelayState();
-
-        message.innerHTML =
-          `<div class="success">
-            Delay ended at ${safeText(data.endDisplay)}.<br>
-            Recorded duration: ${safeText(data.durationText)}.
-          </div>`;
-      } catch (error) {
-        message.innerHTML =
-          `<div class="error">${safeText(error.message)}</div>`;
-      } finally {
-        delayActionInProgress = false;
-        document.getElementById(
-          "endDelayButton"
-        ).disabled = false;
-        document.getElementById(
-          "endDelayButton"
-        ).textContent = "End Delay";
-      }
-    }
-
-
-    const FORM_DEFINITIONS = {
-      QF76: {
-        id: "QF76",
-        code: "QF76 Issue 2 May 2026",
-        title: "Secondary Substation Installation Checklist",
-        version: "Issue 2 – May 2026",
-        sections: [
-          {
-            title: "Substation Details",
-            fields: [
-              {
-                key: "project",
-                label: "Project",
-                type: "text",
-                required: true
-              },
-              {
-                key: "projectReference",
-                label: "Project Reference",
-                type: "text",
-                required: true
-              },
-              {
-                key: "customerDeveloper",
-                label: "Customer / Developer",
-                type: "text",
-                required: false
-              }
-            ]
-          },
-          {
-            title: "Substation Installation Complete",
-            fields: [
-              {
-                key: "installationChecklist",
-                label: "Substation Installation Checklist",
-                type: "checklist",
-                required: true,
-                options: ["Complete", "N/A", "Defect / Incomplete"],
-                items: [
-                  {
-                    key: "transformerPosition",
-                    label: "Transformer Landed and in correct position."
-                  },
-                  {
-                    key: "antiVibrationPads",
-                    label: "Anti Vibration Pads installed."
-                  },
-                  {
-                    key: "ukpnTransformerPosition",
-                    label: "UKPN – Tx positioned over to the LEFT - RTU must be 500mm away from HV end box. Position support bar on TX back fully on plinth base to achieve this."
-                  },
-                  {
-                    key: "grpInstalled",
-                    label: "GRP landed, Bolted down and siliconed. Make sure cat flap for LV generator tails is same side as LV feeder pillar."
-                  },
-                  {
-                    key: "externalEarthing",
-                    label: "Installation of external earthing as per design. Take photos of CAD/FURSE weld."
-                  },
-                  {
-                    key: "internalEarthing",
-                    label: "Installation of internal earthing as per design. LV Cab, TX and HV RMU earths connected."
-                  },
-                  {
-                    key: "rtuInstallation",
-                    label: "Installation / Mounting of RTU complete ready for commissioning if UKPN with 16mm external earth."
-                  },
-                  {
-                    key: "earthLabels",
-                    label: "All Earths labelled at earth bar. Take photo of connections and labels."
-                  },
-                  {
-                    key: "hotColdSite",
-                    label: "Confirm whether this is a HOT SITE or COLD SITE. Check whether separate LV earth is required and correct links are removed inside LV cab."
-                  },
-                  {
-                    key: "hotSiteWarning",
-                    label: "Hot Site warning Label installed if applicable."
-                  },
-                  {
-                    key: "doorsVentsBonded",
-                    label: "Door frames and vents bonded if required."
-                  },
-                  {
-                    key: "earthTestComplete",
-                    label: "Earth test complete. Take photos of results recorded."
-                  },
-                  {
-                    key: "hvTerminations",
-                    label: "HV terminations."
-                  },
-                  {
-                    key: "sheathTest",
-                    label: "Sheath Test 5kV. Note results in comments and take photos of results."
-                  },
-                  {
-                    key: "lvTerminations",
-                    label: "LV terminations. Confirm number installed and specification of cable in notes."
-                  },
-                  {
-                    key: "ukpnDirectEarth",
-                    label: "UKPN require a direct earth from inside LV CAB to earth bar."
-                  },
-                  {
-                    key: "lvDeadTests",
-                    label: "LV dead tests complete. Note results in comments and take photos of results."
-                  },
-                  {
-                    key: "lvSwa",
-                    label: "Installation of LV SWA from LV cabinet into Distribution board. Glanded."
-                  },
-                  {
-                    key: "batonLight",
-                    label: "UKPN require a Baton Light above the substation doors."
-                  },
-                  {
-                    key: "grpGrating",
-                    label: "Install GRP Grating."
-                  }
-                ]
-              },
-              {
-                key: "earthTestResult",
-                label: "Earth Test Result (Ω)",
-                type: "number",
-                required: false
-              },
-              {
-                key: "sheathTestResult",
-                label: "Sheath Test 5kV Result (Ω)",
-                type: "number",
-                required: false
-              },
-              {
-                key: "comments",
-                label: "Comments – including delays, materials provided by MPC and stand-down time",
-                type: "textarea",
-                required: false
-              },
-              {
-                key: "notes",
-                label: "Notes",
-                type: "textarea",
-                required: false
-              }
-            ]
-          },
-          {
-            title: "Completion",
-            fields: [
-              {
-                key: "completedBy",
-                label: "Completed By",
-                type: "text",
-                required: true,
-                defaultFromOperative: true
-              },
-              {
-                key: "company",
-                label: "Company",
-                type: "text",
-                required: true,
-                defaultValue: "ManPowerConnections"
-              },
-              {
-                key: "signature",
-                label: "Signature / Full Name",
-                type: "text",
-                required: true
-              }
-            ]
-          }
-        ]
-,
-      QF112: {
-        id: "QF112",
-        code: "Document Number QF112",
-        title: "Secondary Substation Earthing Test Form",
-        version: "Issue 1 – 15/02/2024",
-        sections: [
-          {
-            title: "Substation Details",
-            fields: [
-              {
-                key: "network",
-                label: "Network",
-                type: "text",
-                required: true
-              },
-              {
-                key: "substationName",
-                label: "Substation Name",
-                type: "text",
-                required: true
-              },
-              {
-                key: "substationNumber",
-                label: "Substation Number",
-                type: "text",
-                required: true
-              },
-              {
-                key: "projectReference",
-                label: "Project Reference",
-                type: "text",
-                required: true
-              }
-            ]
-          },
-          {
-            title: "Earthing Design",
-            fields: [
-              {
-                key: "designReference",
-                label: "Design",
-                type: "text",
-                required: true
-              },
-              {
-                key: "hvEarthResistanceDesign",
-                label: "HV Earth Resistance Design [a] (Ω)",
-                type: "number",
-                required: true
-              },
-              {
-                key: "hvLvEarthClassification",
-                label: "HV/LV Earth Classification",
-                type: "select",
-                options: [
-                  "Combined HV/LV Earth",
-                  "Separate HV and LV Earth",
-                  "Hot Site",
-                  "Cold Site",
-                  "Other"
-                ],
-                required: true
-              },
-              {
-                key: "lvEarthResistanceDesign",
-                label: "LV Earth Resistance Design [b] (Ω)",
-                type: "number",
-                required: false
-              }
-            ]
-          },
-          {
-            title: "HV Earthing",
-            fields: [
-              {
-                key: "hvEarthingChecklist",
-                label: "HV Earthing",
-                type: "checklist",
-                required: true,
-                options: ["Complete", "N/A", "Defect / Incomplete"],
-                items: [
-                  {
-                    key: "earthRods",
-                    label: "Earth rods installed and connected."
-                  },
-                  {
-                    key: "potentialGrading",
-                    label: "Potential grading installed."
-                  },
-                  {
-                    key: "perimeterRing",
-                    label: "Perimeter ring grading electrode installed."
-                  },
-                  {
-                    key: "embeddedMesh",
-                    label: "Embedded mesh installed."
-                  },
-                  {
-                    key: "rebarConnected",
-                    label: "Rebar connected to earth bar."
-                  },
-                  {
-                    key: "additionalEarthing",
-                    label: "Additional earthing installed if required."
-                  },
-                  {
-                    key: "earthBarInstalled",
-                    label: "Earth bar installed."
-                  },
-                  {
-                    key: "earthingSketchProvided",
-                    label: "Sketch of complete earthing system provided."
-                  }
-                ]
-              },
-              {
-                key: "earthingSketchNotes",
-                label: "Earthing System Sketch / Description",
-                type: "textarea",
-                required: true
-              }
-            ]
-          },
-          {
-            title: "Equipment Connections and Bonding",
-            fields: [
-              {
-                key: "bondingChecklist",
-                label: "Equipment Connections and Bonding",
-                type: "checklist",
-                required: true,
-                options: ["Complete", "N/A", "Defect / Incomplete"],
-                items: [
-                  {
-                    key: "switchgearEarth",
-                    label: "Switchgear connected to earth bar."
-                  },
-                  {
-                    key: "transformerEarth",
-                    label: "Transformer connected to earth bar."
-                  },
-                  {
-                    key: "lvCabinetEarth",
-                    label: "LV cabinet / pillar / board internal earth connected to earth bar."
-                  },
-                  {
-                    key: "metallicFenceEarth",
-                    label: "Metallic fence earthed and connected to earth bar."
-                  },
-                  {
-                    key: "metallicGatesEarth",
-                    label: "Metallic gates earthed and connected to earth bar."
-                  },
-                  {
-                    key: "doorsEarth",
-                    label: "Doors connection to earth bar.",
-                    options: [
-                      "Connected",
-                      "Not Connected",
-                      "N/A"
-                    ]
-                  },
-                  {
-                    key: "otherMetalworkEarth",
-                    label: "All other items of equipment / metalwork connected to earth bar."
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            title: "Earth Resistance Measurements",
-            fields: [
-              {
-                key: "hvEarthResistanceMeasured",
-                label: "HV Earth Resistance Before Connection to Network [c] (Ω)",
-                type: "number",
-                required: true
-              },
-              {
-                key: "lvEarthResistanceMeasured",
-                label: "LV Earth Resistance – Separate LV Earth Only [d] (Ω)",
-                type: "number",
-                required: false
-              },
-              {
-                key: "measurementCertificateAttached",
-                label: "Measurement Certificate Attached for Customer Values",
-                type: "select",
-                options: [
-                  "Yes",
-                  "No",
-                  "N/A"
-                ],
-                required: true
-              },
-              {
-                key: "resistancesWithinDesign",
-                label: "All Earth Resistances Within Design Values [c < a and d < b]",
-                type: "select",
-                options: [
-                  "Yes",
-                  "No",
-                  "N/A"
-                ],
-                required: true
-              }
-            ]
-          },
-          {
-            title: "Final Checks",
-            fields: [
-              {
-                key: "finalChecks",
-                label: "Final Checks",
-                type: "checklist",
-                required: true,
-                options: ["Complete", "N/A", "Defect / Incomplete"],
-                items: [
-                  {
-                    key: "hvLvEarthFinal",
-                    label: "HV/LV Earth final check."
-                  },
-                  {
-                    key: "neutralEarthLink",
-                    label: "Neutral / earth link checked."
-                  },
-                  {
-                    key: "earthBarLabels",
-                    label: "All connections individually labelled on earth bar."
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            title: "Test Equipment",
-            fields: [
-              {
-                key: "testPurpose",
-                label: "Purpose",
-                type: "text",
-                required: true
-              },
-              {
-                key: "testEquipmentMakeType",
-                label: "Make / Type",
-                type: "text",
-                required: true
-              },
-              {
-                key: "testEquipmentSerial",
-                label: "Serial Number",
-                type: "text",
-                required: true
-              },
-              {
-                key: "calibrationDate",
-                label: "Calibration Date",
-                type: "text",
-                required: true
-              }
-            ]
-          },
-          {
-            title: "Certification",
-            fields: [
-              {
-                key: "testsCompletedSatisfactorily",
-                label: "All Tests Have Been Completed Satisfactorily",
-                type: "select",
-                options: [
-                  "Yes",
-                  "No"
-                ],
-                required: true
-              },
-              {
-                key: "comments",
-                label: "Comments",
-                type: "textarea",
-                required: false
-              },
-              {
-                key: "commissioningEngineer",
-                label: "Commissioning Engineer",
-                type: "text",
-                required: true
-              },
-              {
-                key: "signature",
-                label: "Signature / Full Name",
-                type: "text",
-                required: true
-              },
-              {
-                key: "date",
-                label: "Date",
-                type: "text",
-                required: true
-              }
-            ]
-          }
-        ]
-      }
-
-      }
+    keys[key] = {
+      timestamp: row[1],
+      acknowledgementId: row[0]
     };
+  }
 
-    let currentLiveFormId = "";
-    let currentLiveFormStatus = "";
-    let currentLiveFormLoadedFolder = "";
+  return keys;
+}
 
-    function renderLiveFormField(field, savedValue) {
-      const requiredMark = field.required
-        ? ' <span style="color:#dc2626;">*</span>'
-        : "";
+function buildDocumentGate(operative, folderId) {
+  const jobFolder = DriveApp.getFolderById(folderId);
+  const requiredDocuments = getRequiredDocumentsForJob(jobFolder);
+  const acknowledgedKeys = getAcknowledgedDocumentKeys(
+    operative,
+    folderId
+  );
+
+  const documents = requiredDocuments.map(item => {
+    const key = getAcknowledgementKey(
+      operative,
+      folderId,
+      item.requirementId,
+      item.documentId,
+      item.documentName
+    );
+
+    return {
+      requirementId: item.requirementId,
+      requirementTitle: item.requirementTitle,
+      documentId: item.documentId,
+      documentName: item.documentName,
+      documentUrl: item.documentUrl,
+      mimeType: item.mimeType,
+      acknowledged: Boolean(acknowledgedKeys[key]),
+      acknowledgedTime: acknowledgedKeys[key]
+        ? acknowledgedKeys[key].timestamp
+        : ""
+    };
+  });
+
+  const missing = documents.filter(item => !item.acknowledged);
+
+  return {
+    complete: missing.length === 0,
+    documents: documents,
+    missingCount: missing.length,
+    requiredCount: documents.length
+  };
+}
+
+function getDocumentGate(data) {
+  const operative = String(data.name || data.operative || "").trim();
+  const folderId = extractDriveId(data.folderId);
+
+  if (!operative || !folderId) {
+    return jsonResponse({
+      success: false,
+      message: "Operative and job folder are required"
+    });
+  }
+
+  const gate = buildDocumentGate(operative, folderId);
+
+  return jsonResponse({
+    success: true,
+    complete: gate.complete,
+    documents: gate.documents,
+    missingCount: gate.missingCount,
+    requiredCount: gate.requiredCount
+  });
+}
+
+function acknowledgeDocument(data) {
+  const operative = String(data.name || data.operative || "").trim();
+  const jobName = String(data.jobName || "Unnamed Job").trim();
+  const folderId = extractDriveId(data.folderId);
+  const requirementId = String(data.requirementId || "").trim();
+  const requirementTitle = String(data.requirementTitle || "").trim();
+  const documentId = String(data.documentId || "").trim();
+  const documentName = String(data.documentName || "").trim();
+  const documentUrl = String(data.documentUrl || "").trim();
+
+  if (!operative || !folderId || !requirementId || !documentName) {
+    return jsonResponse({
+      success: false,
+      message: "Required acknowledgement information is missing"
+    });
+  }
+
+  const existing = getAcknowledgedDocumentKeys(operative, folderId);
+  const key = getAcknowledgementKey(
+    operative,
+    folderId,
+    requirementId,
+    documentId,
+    documentName
+  );
+
+  if (existing[key]) {
+    return jsonResponse({
+      success: true,
+      duplicateIgnored: true,
+      message: "Document already acknowledged",
+      acknowledgedTime: existing[key].timestamp
+    });
+  }
+
+  const now = new Date();
+  const jobId = makeJobId(operative, folderId);
+  const ackId =
+    "ACK_" +
+    Utilities.formatDate(now, TIMEZONE, "yyyyMMddHHmmssSSS") +
+    "_" +
+    Math.floor(Math.random() * 10000);
+
+  getDocumentAcknowledgementsSheet().appendRow([
+    ackId,
+    now,
+    operative,
+    jobId,
+    jobName,
+    folderId,
+    requirementId,
+    requirementTitle,
+    documentId,
+    documentName,
+    documentUrl,
+    "I confirm that I have read, understood and agree to work in accordance with this document."
+  ]);
+
+  const gate = buildDocumentGate(operative, folderId);
+
+  return jsonResponse({
+    success: true,
+    message: "Document acknowledged",
+    acknowledgedTime: nowUKText(),
+    gateComplete: gate.complete,
+    missingCount: gate.missingCount
+  });
+}
+
+
+/* =========================================================
+   REUSABLE LIVE FORMS ENGINE
+========================================================= */
+
+function getLiveFormsSheet() {
+  return getOrCreateSheet(TAB_LIVE_FORMS, [
+    "Record ID",
+    "Form ID",
+    "Form Title",
+    "Form Version",
+    "Job ID",
+    "Job Folder ID",
+    "Operative",
+    "Job Name",
+    "Status",
+    "Form Data JSON",
+    "Created Time",
+    "Updated Time",
+    "Submitted Time",
+    "PDF URL"
+  ]);
+}
+
+
+function makeLiveFormRecordId(formId, operative, folderId) {
+  return (
+    String(formId || "").trim() +
+    "_" +
+    makeJobId(operative, folderId)
+  );
+}
+
+
+function findLiveFormRow(sheet, recordId) {
+  const rows = sheet.getDataRange().getDisplayValues();
+
+  for (let i = 1; i < rows.length; i++) {
+    if (
+      String(rows[i][0] || "").trim() ===
+      String(recordId || "").trim()
+    ) {
+      return i + 1;
+    }
+  }
+
+  return -1;
+}
+
+
+function getLiveForm(data) {
+  const formId = String(data.formId || "").trim();
+  const operative = String(
+    data.name || data.operative || ""
+  ).trim();
+  const folderId = extractDriveId(data.folderId);
+
+  if (!formId || !operative || !folderId) {
+    return jsonResponse({
+      success: false,
+      message: "Form, operative and job folder are required"
+    });
+  }
+
+  const sheet = getLiveFormsSheet();
+  const recordId = makeLiveFormRecordId(
+    formId,
+    operative,
+    folderId
+  );
+  const rowNumber = findLiveFormRow(sheet, recordId);
+
+  if (rowNumber === -1) {
+    return jsonResponse({
+      success: true,
+      found: false,
+      recordId: recordId
+    });
+  }
+
+  const row = sheet
+    .getRange(rowNumber, 1, 1, 14)
+    .getDisplayValues()[0];
+
+  let formData = {};
+
+  try {
+    formData = JSON.parse(row[9] || "{}");
+  } catch (err) {
+    formData = {};
+  }
+
+  return jsonResponse({
+    success: true,
+    found: true,
+    recordId: row[0],
+    formId: row[1],
+    formTitle: row[2],
+    formVersion: row[3],
+    status: row[8],
+    formData: formData,
+    createdTime: row[10],
+    updatedTime: row[11],
+    submittedTime: row[12],
+    pdfUrl: row[13]
+  });
+}
+
+
+function addLiveFormValueRow(tableData, label, value) {
+  tableData.push([
+    String(label || ""),
+    String(value || "")
+  ]);
+}
+
+
+function generateLiveFormPdf(details) {
+  const jobFolder = DriveApp.getFolderById(
+    details.folderId
+  );
+  const completedFolder = getOrCreateChildFolder(
+    jobFolder,
+    "Completed Forms"
+  );
+
+  const safeTitle = String(
+    details.formTitle || details.formId || "Form"
+  ).replace(/[\\/:*?"<>|]/g, "-");
+
+  const safeJobName = String(
+    details.jobName || "Job"
+  ).replace(/[\\/:*?"<>|]/g, "-");
+
+  const stamp = Utilities.formatDate(
+    new Date(),
+    TIMEZONE,
+    "dd-MM-yyyy HH-mm-ss"
+  );
+
+  const reportName =
+    safeTitle + " - " + safeJobName + " - " + stamp;
+
+  const doc = DocumentApp.create(reportName);
+  const body = doc.getBody();
+
+  body.appendParagraph(
+    String(details.formCode || details.formId || "")
+  ).setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+  body.appendParagraph(details.formTitle || "")
+    .setHeading(DocumentApp.ParagraphHeading.HEADING1);
+
+  if (details.formVersion) {
+    body.appendParagraph(
+      "Version: " + details.formVersion
+    );
+  }
+
+  body.appendParagraph(
+    "Job: " + (details.jobName || "")
+  );
+
+  body.appendParagraph(
+    "Operative: " + (details.operative || "")
+  );
+
+  body.appendParagraph(
+    "Submitted: " + nowUKText()
+  );
+
+  body.appendHorizontalRule();
+
+  const formData = details.formData || {};
+  const definition = details.definition || {};
+  const sections = definition.sections || [];
+
+  sections.forEach(section => {
+    body.appendParagraph(section.title || "")
+      .setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+    const tableData = [["Field / Check", "Response"]];
+
+    (section.fields || []).forEach(field => {
+      const value = formData[field.key];
 
       if (field.type === "checklist") {
-        const checklistValue = savedValue || {};
-
-        return `
-          <div class="form-card">
-            <h3>${safeText(field.label)}${requiredMark}</h3>
-            <div class="qf76-list">
-              ${(field.items || []).map((item, index) => `
-                <div class="qf76-item">
-                  <div class="qf76-item-title">
-                    ${index + 1}. ${safeText(item.label)}
-                  </div>
-                  <div class="qf76-options">
-                    ${((item.options && item.options.length) ? item.options : (field.options || [])).map(option => `
-                      <label>
-                        <input
-                          type="radio"
-                          name="live_${field.key}_${item.key}"
-                          value="${safeText(option)}"
-                          ${checklistValue[item.key] === option ? "checked" : ""}
-                        >
-                        <span>${safeText(
-                          option === "Defect / Incomplete"
-                            ? "Defect"
-                            : option
-                        )}</span>
-                      </label>
-                    `).join("")}
-                  </div>
-                </div>
-              `).join("")}
-            </div>
-          </div>
-        `;
-      }
-
-      const value =
-        savedValue !== undefined && savedValue !== null
-          ? savedValue
-          : field.defaultFromOperative && currentOperative
-            ? currentOperative.name
-            : field.defaultValue || "";
-
-      if (field.type === "select") {
-        return `
-          <label for="live_${field.key}">
-            ${safeText(field.label)}${requiredMark}
-          </label>
-          <select
-            id="live_${field.key}"
-            data-live-field="${field.key}"
-          >
-            <option value="">Select...</option>
-            ${(field.options || []).map(option => `
-              <option
-                value="${safeText(option)}"
-                ${String(value) === String(option) ? "selected" : ""}
-              >
-                ${safeText(option)}
-              </option>
-            `).join("")}
-          </select>
-        `;
-      }
-
-      if (field.type === "textarea") {
-        return `
-          <label for="live_${field.key}">
-            ${safeText(field.label)}${requiredMark}
-          </label>
-          <textarea
-            id="live_${field.key}"
-            data-live-field="${field.key}"
-            placeholder="${safeText(field.label)}"
-          >${safeText(value)}</textarea>
-        `;
-      }
-
-      return `
-        <label for="live_${field.key}">
-          ${safeText(field.label)}${requiredMark}
-        </label>
-        <input
-          id="live_${field.key}"
-          data-live-field="${field.key}"
-          type="${field.type === "number" ? "number" : "text"}"
-          value="${safeText(value)}"
-          placeholder="${safeText(field.label)}"
-        >
-      `;
-    }
-
-    function renderLiveForm(definition, savedData) {
-      const contents = document.getElementById(
-        "liveFormContents"
-      );
-
-      contents.innerHTML = definition.sections.map(section => `
-        <div class="form-card">
-          <h3>${safeText(section.title)}</h3>
-          ${(section.fields || []).map(field =>
-            renderLiveFormField(
-              field,
-              savedData ? savedData[field.key] : undefined
-            )
-          ).join("")}
-        </div>
-      `).join("");
-    }
-
-    function collectCurrentLiveFormData() {
-      const definition =
-        FORM_DEFINITIONS[currentLiveFormId];
-
-      const data = {};
-
-      definition.sections.forEach(section => {
-        (section.fields || []).forEach(field => {
-          if (field.type === "checklist") {
-            const checklist = {};
-
-            (field.items || []).forEach(item => {
-              const selected = document.querySelector(
-                `input[name="live_${field.key}_${item.key}"]:checked`
-              );
-
-              checklist[item.key] = selected
-                ? selected.value
-                : "";
-            });
-
-            data[field.key] = checklist;
-          } else {
-            const control = document.querySelector(
-              `[data-live-field="${field.key}"]`
-            );
-
-            data[field.key] = control
-              ? control.value.trim()
+        (field.items || []).forEach(item => {
+          const response =
+            value && value[item.key]
+              ? value[item.key]
               : "";
-          }
-        });
-      });
 
-      return data;
-    }
-
-    function setLiveFormReadOnly(readOnly) {
-      document.querySelectorAll(
-        "#liveFormPanel input, #liveFormPanel textarea, #liveFormPanel select"
-      ).forEach(control => {
-        control.disabled = readOnly;
-      });
-
-      document.getElementById(
-        "liveFormDraftButton"
-      ).disabled = readOnly;
-
-      document.getElementById(
-        "liveFormSubmitButton"
-      ).disabled = readOnly;
-    }
-
-    async function openLiveForm(formId) {
-      if (!selectedJob || !currentOperative) {
-        return;
-      }
-
-      const definition = FORM_DEFINITIONS[formId];
-
-      if (!definition) {
-        return;
-      }
-
-      currentLiveFormId = formId;
-      currentLiveFormStatus = "";
-      currentLiveFormLoadedFolder = selectedJob.folderId;
-
-      hideWorkflowSections();
-
-      const panel = document.getElementById(
-        "liveFormPanel"
-      );
-
-      panel.classList.remove("hidden");
-
-      document.getElementById(
-        "liveFormTitle"
-      ).textContent = definition.title;
-
-      document.getElementById(
-        "liveFormSubtitle"
-      ).textContent =
-        `${definition.code} • ${selectedJob.jobName}`;
-
-      document.getElementById(
-        "liveFormStatusPill"
-      ).textContent = "Loading...";
-
-      document.getElementById(
-        "liveFormMessage"
-      ).innerHTML = "";
-
-      const sourceBox = document.getElementById(
-        "liveFormSourceDocument"
-      );
-
-      if (currentLiveFormSourceDocument) {
-        sourceBox.classList.remove("hidden");
-        sourceBox.innerHTML = `
-          Source document:
-          <a
-            href="${safeText(currentLiveFormSourceDocument.url)}"
-            target="_blank"
-            rel="noopener"
-            style="font-weight:900;color:#0797b3;"
-          >
-            ${safeText(currentLiveFormSourceDocument.name)}
-          </a>
-        `;
-      } else {
-        sourceBox.classList.add("hidden");
-        sourceBox.innerHTML = "";
-      }
-
-      setLiveFormReadOnly(false);
-      renderLiveForm(definition, {});
-
-      try {
-        const response = await apiPost({
-          action: "getLiveForm",
-          formId: formId,
-          name: currentOperative.name,
-          folderId: selectedJob.folderId
-        });
-
-        if (response.found) {
-          currentLiveFormStatus =
-            response.status || "";
-
-          renderLiveForm(
-            definition,
-            response.formData || {}
+          addLiveFormValueRow(
+            tableData,
+            item.label,
+            response
           );
-
-          document.getElementById(
-            "liveFormStatusPill"
-          ).textContent =
-            response.status || "Draft";
-
-          if (response.status === "Submitted") {
-            setLiveFormReadOnly(true);
-
-            document.getElementById(
-              "liveFormMessage"
-            ).innerHTML = `
-              <div class="success">
-                This form has been submitted.
-                ${response.pdfUrl ? `
-                  <br><br>
-                  <a
-                    href="${safeText(response.pdfUrl)}"
-                    target="_blank"
-                    rel="noopener"
-                    style="color:#166534;font-weight:900;"
-                  >
-                    Open Completed PDF
-                  </a>
-                ` : ""}
-              </div>
-            `;
-          }
-        } else {
-          document.getElementById(
-            "liveFormStatusPill"
-          ).textContent = "Not Started";
-        }
-      } catch (error) {
-        document.getElementById(
-          "liveFormMessage"
-        ).innerHTML =
-          `<div class="error">${safeText(error.message)}</div>`;
-      }
-
-      panel.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
-    }
-
-    async function saveCurrentLiveForm(submitFinal) {
-      if (
-        !selectedJob ||
-        !currentOperative ||
-        !currentLiveFormId
-      ) {
-        return;
-      }
-
-      const definition =
-        FORM_DEFINITIONS[currentLiveFormId];
-
-      const message = document.getElementById(
-        "liveFormMessage"
-      );
-      const draftButton = document.getElementById(
-        "liveFormDraftButton"
-      );
-      const submitButton = document.getElementById(
-        "liveFormSubmitButton"
-      );
-
-      draftButton.disabled = true;
-      submitButton.disabled = true;
-      message.innerHTML = "";
-
-      try {
-        const response = await apiPost({
-          action: "saveLiveForm",
-          formId: definition.id,
-          formTitle: definition.title,
-          formVersion: definition.version,
-          name: currentOperative.name,
-          jobName: selectedJob.jobName,
-          folderId: selectedJob.folderId,
-          formData: collectCurrentLiveFormData(),
-          definition: definition,
-          submitFinal: submitFinal === true
         });
-
-        currentLiveFormStatus =
-          response.status || "";
-
-        document.getElementById(
-          "liveFormStatusPill"
-        ).textContent = response.status;
-
-        if (submitFinal) {
-          setLiveFormReadOnly(true);
-
-          message.innerHTML = `
-            <div class="success">
-              Form submitted successfully.
-              ${response.pdfUrl ? `
-                <br><br>
-                <a
-                  href="${safeText(response.pdfUrl)}"
-                  target="_blank"
-                  rel="noopener"
-                  style="color:#166534;font-weight:900;"
-                >
-                  Open Completed PDF
-                </a>
-              ` : ""}
-            </div>
-          `;
-        } else {
-          message.innerHTML =
-            `<div class="success">Draft saved at ${safeText(response.updatedTime)}.</div>`;
-        }
-      } catch (error) {
-        message.innerHTML =
-          `<div class="error">${safeText(error.message)}</div>`;
-      } finally {
-        if (currentLiveFormStatus !== "Submitted") {
-          draftButton.disabled = false;
-          submitButton.disabled = false;
-        }
+      } else {
+        addLiveFormValueRow(
+          tableData,
+          field.label,
+          value || ""
+        );
       }
+    });
+
+    if (tableData.length > 1) {
+      body.appendTable(tableData);
     }
+  });
 
-    const workflowSections = ["documentsPanel","riskAssessmentPanel","permitPanel","ramsPanel","workInstructionPanel","liveFormPanel","plantChecksPanel","evidencePanel","finishJobPanel"];
-    const workflowState = {riskAssessment:false,permit:false,rams:false,workInstruction:false,plant:false,evidence:false,finish:false};
-    function hideWorkflowSections(){workflowSections.forEach(id=>{const p=document.getElementById(id);if(p)p.classList.add("hidden");});}
-    function showWorkflowSection(id){if(!selectedJob)return;hideWorkflowSections();const p=document.getElementById(id);if(p){p.classList.remove("hidden");p.scrollIntoView({behavior:"smooth",block:"start"});}if(id==="documentsPanel"){document.getElementById("documentsSelectedJob").textContent=`${selectedJob.jobName||"Unnamed Job"} • ${selectedJob.site||"Site not entered"}`;renderDocuments();}if(id==="evidencePanel"){document.getElementById("evidenceSelectedJob").textContent=`${selectedJob.jobName||"Unnamed Job"} • ${selectedJob.site||"Site not entered"}`;}}
-    function openJobWorkflow(index){selectedJob=currentOperative.jobs[index];document.getElementById("jobWorkflowPanel").classList.remove("hidden");document.getElementById("workflowJobTitle").textContent=selectedJob.jobName||"Unnamed Job";document.getElementById("workflowJobSubtitle").textContent=`${selectedJob.site||"Site not entered"} • ${selectedJob.date||""}`;hideWorkflowSections();updateWorkflowProgress();document.getElementById("jobWorkflowPanel").scrollIntoView({behavior:"smooth",block:"start"});}
-    function updateWorkflowProgress(){const completed=1+Object.values(workflowState).filter(Boolean).length;document.getElementById("workflowProgressPill").textContent=`${completed} of 8 Complete`;const map={riskAssessment:"stepRiskAssessment",permit:"stepPermit",rams:"stepRams",workInstruction:"stepWorkInstruction",plant:"stepPlant",evidence:"stepEvidence",finish:"stepFinish"};Object.entries(map).forEach(([k,id])=>{const e=document.getElementById(id);if(e)e.classList.toggle("complete",workflowState[k]);});}
-    function saveLocalWorkflowStep(step){const checks={riskAssessment:()=>riskWeather.value&&riskServices.value,permit:()=>permitNumber.value.trim()&&permitScan.value&&permitMarked.value,rams:()=>ramsConfirm.checked&&ramsSignature.value.trim(),workInstruction:()=>workInstructionConfirm.checked&&workInstructionSignature.value.trim(),plant:()=>plantTypeSelect.value&&plantIdentifier.value.trim(),finish:()=>finishWorkComplete.checked&&finishPaperworkComplete.checked&&finishPhotosComplete.checked&&finishSignature.value.trim()};const ids={riskAssessment:"riskAssessmentMessage",permit:"permitMessage",rams:"ramsMessage",workInstruction:"workInstructionMessage",plant:"plantMessage",finish:"finishMessage"};const m=document.getElementById(ids[step]);if(checks[step]&&!checks[step]()){m.innerHTML='<div class="error">Please complete all required fields before saving.</div>';return;}workflowState[step]=true;updateWorkflowProgress();m.innerHTML='<div class="success">Saved in this redesigned portal preview. Permanent Google Sheet saving will be connected when the final client forms are confirmed.</div>'; }
+  doc.saveAndClose();
 
-    function renderJobs() {
-      const jobs = currentOperative.jobs || [];
-      const list = document.getElementById("jobsList");
-      const pill = document.getElementById("jobCountPill");
+  const docFile = DriveApp.getFileById(doc.getId());
+  const pdfBlob = docFile
+    .getAs(MimeType.PDF)
+    .setName(reportName + ".pdf");
 
-      // Clear any job opened by the previous user.
-      selectedJob = null;
-      currentJobTracking = null;
-      currentLiveFormSourceDocument = null;
-      activeDelay = null;
-      stopDelayTicker();
+  const pdfFile = completedFolder.createFile(pdfBlob);
+  docFile.setTrashed(true);
 
-      pill.textContent = `${jobs.length} Job${jobs.length === 1 ? "" : "s"}`;
+  return pdfFile;
+}
 
-      document.getElementById("jobWorkflowPanel").classList.add("hidden");
-      hideWorkflowSections();
-      document.getElementById("documentsPanel").classList.add("hidden");
-      document.getElementById("evidencePanel").classList.add("hidden");
 
-      const trackingMessage = document.getElementById("trackingMessage");
-      if (trackingMessage) trackingMessage.innerHTML = "";
+function validateLiveForm(definition, formData) {
+  const missing = [];
 
-      if (jobs.length === 0) {
-        currentLiveFormId = "";
-        currentLiveFormStatus = "";
-        currentLiveFormLoadedFolder = "";
-
-        list.innerHTML = `
-          <div class="card">
-            <div class="card-icon">📍</div>
-            <h3>No Jobs Assigned</h3>
-            <p>No dated Drive folder or job folders were found for you today. The office should create today’s folder using DD-MM-YYYY and place job folders inside it.</p>
-          </div>
-        `;
+  (definition.sections || []).forEach(section => {
+    (section.fields || []).forEach(field => {
+      if (!field.required) {
         return;
       }
 
-      list.innerHTML = jobs.map((job, index) => `
-        <div class="card">
-          <div class="card-icon">📍</div>
-          <span class="pill">${safeText(job.site || "Site not entered")}</span>
-          <h3 style="margin-top:12px;">${safeText(job.jobName || "Unnamed Job")}</h3>
-          <p>${safeText(job.date || "")}</p>
-          <button class="button" onclick="openJobWorkflow(${index})">Open Daily Workflow</button>
-          <button class="button secondary" onclick="openJobEvidence(${index})">Quick Upload Evidence</button>
-        </div>
-      `).join("");
-    }
+      const value = formData[field.key];
 
-    function openJobDocuments(index) {
-      selectedJob = currentOperative.jobs[index];
-
-      document.getElementById("evidencePanel").classList.add("hidden");
-      document.getElementById("documentsPanel").classList.remove("hidden");
-
-      document.getElementById("documentsSelectedJob").textContent =
-        `${selectedJob.jobName || "Unnamed Job"} • ${selectedJob.site || "Site not entered"}`;
-
-      renderDocuments();
-
-      document.getElementById("documentsPanel").scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
-    }
-
-    function openJobEvidence(index) {
-      selectedJob = currentOperative.jobs[index];
-
-      document.getElementById("documentsPanel").classList.add("hidden");
-      document.getElementById("evidencePanel").classList.remove("hidden");
-
-      document.getElementById("evidenceSelectedJob").textContent =
-        `${selectedJob.jobName || "Unnamed Job"} • ${selectedJob.site || "Site not entered"}`;
-
-      document.getElementById("evidenceMessage").innerHTML = "";
-
-      document.getElementById("evidencePanel").scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
-    }
-
-    function getDocumentBaseName(documentItem) {
-      return String(
-        documentItem.originalName ||
-        documentItem.name ||
-        ""
-      ).toLowerCase();
-    }
-
-    function matchDocumentTemplate(documentItem) {
-      const fileName = getDocumentBaseName(documentItem);
-
-      const registryMatch = formTemplates.find(template =>
-        (template.patterns || []).some(pattern =>
-          fileName.includes(
-            String(pattern || "").toLowerCase()
-          )
-        )
-      );
-
-      if (
-        registryMatch &&
-        FORM_DEFINITIONS[registryMatch.formId]
-      ) {
-        return registryMatch;
-      }
-
-      if (
-        (fileName.includes("qf76") ||
-         fileName.includes("qf 76") ||
-         fileName.includes("secondary substation installation checklist")) &&
-        FORM_DEFINITIONS.QF76
-      ) {
-        return {
-          formId: "QF76",
-          title: "Secondary Substation Installation Checklist"
-        };
-      }
-
-      if (
-        (fileName.includes("qf112") ||
-         fileName.includes("qf 112") ||
-         fileName.includes("secondary substation earthing test form")) &&
-        FORM_DEFINITIONS.QF112
-      ) {
-        return {
-          formId: "QF112",
-          title: "Secondary Substation Earthing Test Form"
-        };
-      }
-
-      return null;
-    }
-
-    function openDocumentAsLiveForm(formId, documentIndex) {
-      if (!selectedJob) return;
-
-      currentLiveFormSourceDocument =
-        (selectedJob.documents || [])[documentIndex] || null;
-
-      openLiveForm(formId);
-    }
-
-    function renderDocuments() {
-      const list = document.getElementById("documentList");
-      const intro = document.getElementById("documentsIntro");
-
-      if (!selectedJob) {
-        intro.textContent = "Select a job to view its documents.";
-        list.innerHTML = "";
-        return;
-      }
-
-      intro.textContent =
-        `${currentOperative.name} • ${selectedJob.jobName} • ${selectedJob.site}`;
-
-      const documents = selectedJob.documents || [];
-
-      if (documents.length === 0) {
-        list.innerHTML =
-          `<div class="error">No documents are currently inside this job folder.</div>`;
-        return;
-      }
-
-      list.innerHTML = documents.map((doc, index) => {
-        const template = matchDocumentTemplate(doc);
-
-        return `
-          <div class="document-hub-item">
-            <div class="document-hub-title">
-              📄 ${safeText(doc.name)}
-            </div>
-
-            <div class="document-hub-meta">
-              ${template
-                ? `Editable template recognised: ${safeText(template.title || template.formId)}`
-                : `View-only source document • ${safeText(doc.type || "File")}`
-              }
-            </div>
-
-            <div class="document-hub-actions">
-              <a
-                class="button secondary"
-                href="${safeText(doc.url)}"
-                target="_blank"
-                rel="noopener"
-              >
-                Open Original
-              </a>
-
-              ${template ? `
-                <button
-                  class="button"
-                  onclick="openDocumentAsLiveForm('${safeText(template.formId)}', ${index})"
-                >
-                  Complete Live
-                </button>
-              ` : ""}
-            </div>
-          </div>
-        `;
-      }).join("");
-    }
-
-    async function submitVanCheck() {
-      const message = document.getElementById("vanCheckMessage");
-      const submitButton = document.querySelector("#vanCheckView .button");
-      message.innerHTML = "";
-
-      const vehicleReg = document.getElementById("vehicleReg").value.trim();
-      const mileageText = document.getElementById("vehicleMileage").value.trim();
-      const mileage = Number(mileageText);
-      const notes = document.getElementById("vanCheckNotes").value.trim();
-      const results = [];
-      let hasDefect = false;
-
-      if (!vehicleReg) {
-        message.innerHTML =
-          `<div class="error">Please enter the vehicle registration.</div>`;
-        return;
-      }
-
-      if (!mileageText) {
-        message.innerHTML =
-          `<div class="error">Please enter the current vehicle mileage.</div>`;
-        return;
-      }
-
-      if (!Number.isInteger(mileage) || mileage < 0) {
-        message.innerHTML =
-          `<div class="error">Please enter a valid whole-number mileage.</div>`;
-        return;
-      }
-
-      for (let i = 0; i < vanCheckItems.length; i++) {
-        const selected = document.querySelector(
-          `input[name="check_${i}"]:checked`
+      if (field.type === "checklist") {
+        const incomplete = (field.items || []).some(item =>
+          !value || !String(value[item.key] || "").trim()
         );
 
-        if (!selected) {
-          message.innerHTML =
-            `<div class="error">Please complete all van check items.</div>`;
-          return;
+        if (incomplete) {
+          missing.push(field.label || section.title);
         }
-
-        if (selected.value === "Defect") {
-          hasDefect = true;
-        }
-
-        results.push({
-          item: vanCheckItems[i],
-          result: selected.value
-        });
+      } else if (!String(value || "").trim()) {
+        missing.push(field.label || field.key);
       }
+    });
+  });
 
-      if (hasDefect && !notes) {
-        message.innerHTML =
-          `<div class="error">You have marked a defect. Please add notes before submitting.</div>`;
-        return;
-      }
+  return missing;
+}
 
-      submitButton.disabled = true;
-      submitButton.textContent = "Submitting van check...";
 
-      try {
-        await apiPost({
-          action: "submitVanCheck",
-          name: currentOperative.name,
-          vehicle: vehicleReg,
-          mileage: mileage,
-          notes: JSON.stringify({
-            notes: notes,
-            checks: results
-          }),
-          result: hasDefect ? "Defect Reported" : "All OK"
-        });
+function saveLiveForm(data) {
+  const formId = String(data.formId || "").trim();
+  const formTitle = String(data.formTitle || "").trim();
+  const formVersion = String(data.formVersion || "").trim();
+  const operative = String(
+    data.name || data.operative || ""
+  ).trim();
+  const jobName = String(
+    data.jobName || "Unnamed Job"
+  ).trim();
+  const folderId = extractDriveId(data.folderId);
+  const submitFinal = data.submitFinal === true;
+  const formData = data.formData || {};
+  const definition = data.definition || {};
 
-        vanCheckComplete = true;
-        message.innerHTML =
-          `<div class="success">Van check submitted. Job access unlocked.</div>`;
+  if (!formId || !operative || !folderId) {
+    return jsonResponse({
+      success: false,
+      message: "Form, operative and job folder are required"
+    });
+  }
 
-        setTimeout(unlockJobAccess, 500);
+  if (submitFinal) {
+    const missing = validateLiveForm(
+      definition,
+      formData
+    );
 
-      } catch (error) {
-        message.innerHTML =
-          `<div class="error">${safeText(error.message)}</div>`;
-        console.error(error);
-      } finally {
-        submitButton.disabled = false;
-        submitButton.textContent =
-          "Submit Van Check & Unlock Job Pack";
-      }
+    if (missing.length > 0) {
+      return jsonResponse({
+        success: false,
+        message:
+          "Complete the required fields: " +
+          missing.join(", ")
+      });
     }
+  }
 
-    async function fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () =>
-          reject(new Error(`Could not read ${file.name}`));
-        reader.readAsDataURL(file);
+  const sheet = getLiveFormsSheet();
+  const recordId = makeLiveFormRecordId(
+    formId,
+    operative,
+    folderId
+  );
+  const rowNumber = findLiveFormRow(
+    sheet,
+    recordId
+  );
+  const now = new Date();
+  const jobId = makeJobId(
+    operative,
+    folderId
+  );
+
+  let createdTime = now;
+  let existingStatus = "";
+  let pdfUrl = "";
+
+  if (rowNumber !== -1) {
+    const existing = sheet
+      .getRange(rowNumber, 1, 1, 14)
+      .getValues()[0];
+
+    createdTime = existing[10] || now;
+    existingStatus = String(existing[8] || "");
+    pdfUrl = String(existing[13] || "");
+  }
+
+  if (existingStatus === "Submitted") {
+    return jsonResponse({
+      success: false,
+      message: "This form has already been submitted"
+    });
+  }
+
+  let submittedTime = "";
+
+  if (submitFinal) {
+    submittedTime = now;
+
+    const pdfFile = generateLiveFormPdf({
+      formId: formId,
+      formCode: definition.code || formId,
+      formTitle: formTitle,
+      formVersion: formVersion,
+      operative: operative,
+      jobName: jobName,
+      folderId: folderId,
+      formData: formData,
+      definition: definition
+    });
+
+    pdfUrl = pdfFile.getUrl();
+  }
+
+  const row = [
+    recordId,
+    formId,
+    formTitle,
+    formVersion,
+    jobId,
+    folderId,
+    operative,
+    jobName,
+    submitFinal ? "Submitted" : "Draft",
+    JSON.stringify(formData),
+    createdTime,
+    now,
+    submittedTime,
+    pdfUrl
+  ];
+
+  if (rowNumber === -1) {
+    sheet.appendRow(row);
+  } else {
+    sheet
+      .getRange(rowNumber, 1, 1, row.length)
+      .setValues([row]);
+  }
+
+  return jsonResponse({
+    success: true,
+    message: submitFinal
+      ? "Form submitted and PDF generated"
+      : "Draft saved",
+    status: submitFinal ? "Submitted" : "Draft",
+    pdfUrl: pdfUrl,
+    updatedTime: nowUKText()
+  });
+}
+
+
+/* =========================================================
+   QF76 SECONDARY SUBSTATION INSTALLATION CHECKLIST
+========================================================= */
+
+function getQF76Sheet() {
+  return getOrCreateSheet(TAB_QF76, [
+    "Record ID", "Job ID", "Job Folder ID", "Operative", "Job Name",
+    "Project", "Project Reference", "Customer / Developer",
+    "Checklist JSON", "Comments", "Completed By", "Company",
+    "Signature", "Status", "Created Time", "Updated Time",
+    "Submitted Time", "PDF URL"
+  ]);
+}
+
+function makeQF76RecordId(operative, folderId) {
+  return "QF76_" + makeJobId(operative, folderId);
+}
+
+function findQF76Row(sheet, recordId) {
+  const rows = sheet.getDataRange().getDisplayValues();
+
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0] || "").trim() === String(recordId || "").trim()) {
+      return i + 1;
+    }
+  }
+
+  return -1;
+}
+
+function getQF76(data) {
+  const operative = String(data.name || data.operative || "").trim();
+  const folderId = extractDriveId(data.folderId);
+
+  if (!operative || !folderId) {
+    return jsonResponse({
+      success: false,
+      message: "Operative and job folder are required"
+    });
+  }
+
+  const sheet = getQF76Sheet();
+  const recordId = makeQF76RecordId(operative, folderId);
+  const rowNumber = findQF76Row(sheet, recordId);
+
+  if (rowNumber === -1) {
+    return jsonResponse({
+      success: true,
+      found: false,
+      recordId: recordId
+    });
+  }
+
+  const row = sheet.getRange(rowNumber, 1, 1, 18).getDisplayValues()[0];
+  let checklist = {};
+
+  try {
+    checklist = JSON.parse(row[8] || "{}");
+  } catch (err) {
+    checklist = {};
+  }
+
+  return jsonResponse({
+    success: true,
+    found: true,
+    recordId: row[0],
+    project: row[5],
+    projectReference: row[6],
+    customerDeveloper: row[7],
+    checklist: checklist,
+    comments: row[9],
+    completedBy: row[10],
+    company: row[11],
+    signature: row[12],
+    status: row[13],
+    updatedTime: row[15],
+    submittedTime: row[16],
+    pdfUrl: row[17]
+  });
+}
+
+function generateQF76Pdf(details) {
+  const jobFolder = DriveApp.getFolderById(details.folderId);
+  const completedFolder = getOrCreateChildFolder(jobFolder, "Completed Forms");
+
+  const safeJobName = String(details.jobName || "Job")
+    .replace(/[\\/:*?"<>|]/g, "-");
+
+  const stamp = Utilities.formatDate(
+    new Date(),
+    TIMEZONE,
+    "dd-MM-yyyy HH-mm-ss"
+  );
+
+  const reportName = "QF76 - " + safeJobName + " - " + stamp;
+  const doc = DocumentApp.create(reportName);
+  const body = doc.getBody();
+
+  body.appendParagraph("QF76 ISSUE 2 MAY 2026")
+    .setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+  body.appendParagraph("SECONDARY SUBSTATION INSTALLATION CHECKLIST")
+    .setHeading(DocumentApp.ParagraphHeading.HEADING1);
+
+  body.appendParagraph("Substation Details")
+    .setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+  body.appendTable([
+    ["Project", details.project || ""],
+    ["Project Reference", details.projectReference || ""],
+    ["Customer / Developer", details.customerDeveloper || ""],
+    ["Job Name", details.jobName || ""],
+    ["Operative", details.operative || ""]
+  ]);
+
+  body.appendParagraph("Substation Installation")
+    .setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+  const tableData = [["Checklist Item", "Result"]];
+
+  details.items.forEach(item => {
+    tableData.push([
+      item.label,
+      details.checklist[item.key] || ""
+    ]);
+  });
+
+  body.appendTable(tableData);
+
+  body.appendParagraph("Comments")
+    .setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  body.appendParagraph(details.comments || "");
+
+  body.appendParagraph("Completion")
+    .setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+  body.appendTable([
+    ["Completed By", details.completedBy || ""],
+    ["Company", details.company || ""],
+    ["Signature / Full Name", details.signature || ""],
+    ["Submitted", nowUKText()]
+  ]);
+
+  doc.saveAndClose();
+
+  const docFile = DriveApp.getFileById(doc.getId());
+  const pdfBlob = docFile
+    .getAs(MimeType.PDF)
+    .setName(reportName + ".pdf");
+
+  const pdfFile = completedFolder.createFile(pdfBlob);
+  docFile.setTrashed(true);
+
+  return pdfFile;
+}
+
+function saveQF76(data) {
+  const operative = String(data.name || data.operative || "").trim();
+  const jobName = String(data.jobName || "Unnamed Job").trim();
+  const folderId = extractDriveId(data.folderId);
+  const submitFinal = data.submitFinal === true;
+
+  if (!operative || !folderId) {
+    return jsonResponse({
+      success: false,
+      message: "Operative and job folder are required"
+    });
+  }
+
+  const project = String(data.project || "").trim();
+  const projectReference = String(data.projectReference || "").trim();
+  const customerDeveloper = String(data.customerDeveloper || "").trim();
+  const comments = String(data.comments || "").trim();
+  const completedBy = String(data.completedBy || "").trim();
+  const company = String(data.company || "").trim();
+  const signature = String(data.signature || "").trim();
+  const checklist = data.checklist || {};
+  const items = data.items || [];
+
+  if (submitFinal) {
+    if (!project || !projectReference || !completedBy || !signature) {
+      return jsonResponse({
+        success: false,
+        message: "Project, project reference, completed by and signature are required"
       });
     }
 
-    async function submitEvidence() {
-      const files = Array.from(
-        document.getElementById("evidencePhotos").files || []
+    const incomplete = items.some(item =>
+      !String(checklist[item.key] || "").trim()
+    );
+
+    if (incomplete) {
+      return jsonResponse({
+        success: false,
+        message: "Complete every checklist item before final submission"
+      });
+    }
+  }
+
+  const sheet = getQF76Sheet();
+  const recordId = makeQF76RecordId(operative, folderId);
+  const rowNumber = findQF76Row(sheet, recordId);
+  const now = new Date();
+  const jobId = makeJobId(operative, folderId);
+
+  let createdTime = now;
+  let existingStatus = "";
+  let pdfUrl = "";
+
+  if (rowNumber !== -1) {
+    const existing = sheet.getRange(rowNumber, 1, 1, 18).getValues()[0];
+    createdTime = existing[14] || now;
+    existingStatus = String(existing[13] || "");
+    pdfUrl = String(existing[17] || "");
+  }
+
+  if (existingStatus === "Submitted" && !submitFinal) {
+    return jsonResponse({
+      success: false,
+      message: "This QF76 form has already been submitted"
+    });
+  }
+
+  let submittedTime = "";
+
+  if (submitFinal) {
+    submittedTime = now;
+
+    const pdfFile = generateQF76Pdf({
+      operative: operative,
+      jobName: jobName,
+      folderId: folderId,
+      project: project,
+      projectReference: projectReference,
+      customerDeveloper: customerDeveloper,
+      checklist: checklist,
+      items: items,
+      comments: comments,
+      completedBy: completedBy,
+      company: company,
+      signature: signature
+    });
+
+    pdfUrl = pdfFile.getUrl();
+  }
+
+  const row = [
+    recordId,
+    jobId,
+    folderId,
+    operative,
+    jobName,
+    project,
+    projectReference,
+    customerDeveloper,
+    JSON.stringify(checklist),
+    comments,
+    completedBy,
+    company,
+    signature,
+    submitFinal ? "Submitted" : "Draft",
+    createdTime,
+    now,
+    submittedTime,
+    pdfUrl
+  ];
+
+  if (rowNumber === -1) {
+    sheet.appendRow(row);
+  } else {
+    sheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
+  }
+
+  return jsonResponse({
+    success: true,
+    message: submitFinal
+      ? "QF76 submitted and PDF generated"
+      : "QF76 draft saved",
+    status: submitFinal ? "Submitted" : "Draft",
+    pdfUrl: pdfUrl,
+    updatedTime: nowUKText()
+  });
+}
+
+
+/* =========================================================
+   VAN CHECKS
+========================================================= */
+
+function hasVanCheckToday(operative, dateToday) {
+  const sheet = getSheet(TAB_VAN_CHECKS);
+
+  const rawRows = sheet.getDataRange().getValues();
+  const displayedRows = sheet.getDataRange().getDisplayValues();
+
+  if (rawRows.length < 2) {
+    return false;
+  }
+
+  const headers = displayedRows[0].map(normaliseHeader);
+
+  const dateIndex = headers.indexOf("date");
+  const timestampIndex = headers.indexOf("timestamp");
+  const operativeIndex = headers.indexOf("operative");
+
+  if (operativeIndex === -1) {
+    console.log("Operative column not found in Van Checks");
+    return false;
+  }
+
+  const targetDate = normaliseDisplayedDate(dateToday);
+  const targetName = normaliseName(operative);
+
+  for (let i = 1; i < rawRows.length; i++) {
+    const rowName = normaliseName(
+      displayedRows[i][operativeIndex]
+    );
+
+    if (rowName !== targetName) {
+      continue;
+    }
+
+    let savedDate = "";
+
+    if (
+      timestampIndex !== -1 &&
+      rawRows[i][timestampIndex] instanceof Date
+    ) {
+      savedDate = Utilities.formatDate(
+        rawRows[i][timestampIndex],
+        TIMEZONE,
+        "dd/MM/yyyy"
       );
-
-      const notes = document.getElementById("evidenceNotes").value.trim();
-      const message = document.getElementById("evidenceMessage");
-      const submitButton = document.getElementById("evidenceSubmitButton");
-
-      message.innerHTML = "";
-
-      if (!selectedJob) {
-        message.innerHTML =
-          `<div class="error">Please select a job before uploading evidence.</div>`;
-        return;
-      }
-
-      if (!selectedJob.folderId) {
-        message.innerHTML =
-          `<div class="error">The selected Drive job folder could not be identified.</div>`;
-        return;
-      }
-
-      if (files.length === 0) {
-        message.innerHTML =
-          `<div class="error">Please add at least one photo to upload.</div>`;
-        return;
-      }
-
-      submitButton.disabled = true;
-
-      try {
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-
-          submitButton.textContent =
-            `Uploading ${i + 1} of ${files.length}...`;
-
-          const fileData = await fileToBase64(file);
-
-          await apiPost({
-            action: "uploadPhoto",
-            name: currentOperative.name,
-            site: selectedJob.site,
-            jobName: selectedJob.jobName,
-            folderId: selectedJob.folderId,
-            notes: notes,
-            fileName: file.name,
-            fileData: fileData
-          });
-        }
-
-        message.innerHTML =
-          `<div class="success">${files.length} photo${files.length === 1 ? "" : "s"} uploaded to the selected job folder.</div>`;
-
-        document.getElementById("evidencePhotos").value = "";
-        document.getElementById("evidenceNotes").value = "";
-        workflowState.evidence = true;
-        updateWorkflowProgress();
-
-      } catch (error) {
-        message.innerHTML =
-          `<div class="error">${safeText(error.message)}</div>`;
-        console.error(error);
-      } finally {
-        submitButton.disabled = false;
-        submitButton.textContent = "Submit Evidence";
-      }
     }
 
-    function logoutOperative() {
-      currentOperative = null;
-      selectedJob = null;
-      vanCheckComplete = false;
-      jobTracking = {};
-      currentJobTracking = null;
-      jobActionInProgress = false;
-
-      document.getElementById("pinInput").value = "";
-      document.getElementById("vehicleMileage").value = "";
-      document.getElementById("vanCheckNotes").value = "";
-      document.getElementById("evidenceNotes").value = "";
-      document.getElementById("evidencePhotos").value = "";
-      document.getElementById("dashboardView").classList.add("hidden");
-      document.getElementById("loginView").classList.remove("hidden");
-      document.getElementById("documentsPanel").classList.add("hidden");
-      document.getElementById("evidencePanel").classList.add("hidden");
-      document.getElementById("loginMessage").innerHTML = "";
-      document.getElementById("jobsList").innerHTML = "";
-      document.getElementById("jobCountPill").textContent = "0 Jobs";
-      document.getElementById("jobWorkflowPanel").classList.add("hidden");
-      hideWorkflowSections();
-
-      renderVanChecks();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    if (!savedDate && dateIndex !== -1) {
+      savedDate = normaliseDisplayedDate(
+        displayedRows[i][dateIndex]
+      );
     }
 
-    populateOperatives();
-    renderVanChecks();
-  </script>
-</body>
-</html>
+    console.log(
+      "Van check row " + (i + 1),
+      rowName,
+      savedDate,
+      "Target:",
+      targetDate
+    );
+
+    if (savedDate === targetDate) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+function submitVanCheck(data) {
+  const sheet = getSheet(TAB_VAN_CHECKS);
+
+  sheet.appendRow([
+    todayUK(),
+    new Date(),
+    data.name || data.operative || "",
+    data.vehicle || data.vehicleReg || "",
+    data.mileage || "",
+    data.notes || "",
+    data.result || "Submitted"
+  ]);
+
+  return jsonResponse({
+    success: true,
+    message: "Van check submitted"
+  });
+}
+
+
+/* =========================================================
+   GOOGLE DRIVE DOCUMENTS
+========================================================= */
+
+function getDriveDocuments(folderId) {
+  const cleanFolderId = String(folderId || "").trim();
+
+  if (!cleanFolderId) {
+    return [];
+  }
+
+  const folder = DriveApp.getFolderById(cleanFolderId);
+  const files = folder.getFiles();
+  const documents = [];
+
+  while (files.hasNext()) {
+    const file = files.next();
+
+    documents.push({
+      name: file.getName(),
+      url: file.getUrl(),
+      type: file.getMimeType()
+    });
+  }
+
+  documents.sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
+  return documents;
+}
+
+
+function getPhotoUploadsSheet() {
+  return getOrCreateSheet(TAB_PHOTO_UPLOADS, [
+    "Date",
+    "Timestamp",
+    "Operative",
+    "Site",
+    "Job Name",
+    "File Name",
+    "File URL",
+    "Notes",
+    "Job Folder ID"
+  ]);
+}
+
+
+/* =========================================================
+   PHOTO UPLOAD
+========================================================= */
+
+function uploadPhoto(data) {
+  const operativeName = String(
+    data.name || data.operative || ""
+  ).trim();
+
+  if (!operativeName) {
+    return jsonResponse({
+      success: false,
+      message: "No operative name was provided"
+    });
+  }
+
+  const jobFolderId = extractDriveId(data.folderId);
+
+  if (!jobFolderId) {
+    return jsonResponse({
+      success: false,
+      message: "No valid job folder was provided"
+    });
+  }
+
+  if (!data.fileData || !data.fileName) {
+    return jsonResponse({
+      success: false,
+      message: "No photo file was received"
+    });
+  }
+
+  const dataMatch = String(data.fileData).match(
+    /^data:(.*?);base64,(.*)$/
+  );
+
+  if (!dataMatch) {
+    return jsonResponse({
+      success: false,
+      message: "Invalid photo data"
+    });
+  }
+
+  const contentType = dataMatch[1];
+  const base64Data = dataMatch[2];
+
+  const originalFileName = String(data.fileName || "photo.jpg");
+  const extensionMatch = originalFileName.match(
+    /\.([a-zA-Z0-9]+)$/
+  );
+  const extension = extensionMatch
+    ? extensionMatch[1].toLowerCase()
+    : "jpg";
+
+  const safeJobName = String(data.jobName || "Job")
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, "-");
+
+  const safeOperativeName = operativeName.replace(
+    /[\\/:*?"<>|]/g,
+    "-"
+  );
+
+  const timestamp = Utilities.formatDate(
+    new Date(),
+    TIMEZONE,
+    "dd-MM-yyyy HH-mm-ss-SSS"
+  );
+
+  const newFileName =
+    safeOperativeName +
+    " - " +
+    safeJobName +
+    " - " +
+    timestamp +
+    "." +
+    extension;
+
+  const blob = Utilities.newBlob(
+    Utilities.base64Decode(base64Data),
+    contentType,
+    newFileName
+  );
+
+  const jobFolder = DriveApp.getFolderById(jobFolderId);
+  const evidenceFolders = jobFolder.getFoldersByName(
+    "Photo Evidence"
+  );
+
+  const evidenceFolder = evidenceFolders.hasNext()
+    ? evidenceFolders.next()
+    : jobFolder.createFolder("Photo Evidence");
+
+  const file = evidenceFolder.createFile(blob);
+  const sheet = getPhotoUploadsSheet();
+
+  sheet.appendRow([
+    todayUK(),
+    new Date(),
+    operativeName,
+    data.site || "",
+    data.jobName || "",
+    file.getName(),
+    file.getUrl(),
+    data.notes || "",
+    jobFolderId
+  ]);
+
+  return jsonResponse({
+    success: true,
+    message: "Photo uploaded successfully",
+    fileUrl: file.getUrl(),
+    folderUrl: evidenceFolder.getUrl()
+  });
+}
+
+
+/* =========================================================
+   JSON RESPONSE
+========================================================= */
+
+function jsonResponse(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+
+/* =========================================================
+   MANUAL TEST FUNCTIONS
+========================================================= */
+
+function testDriveJobs() {
+  const operative = "Shaun Maley";
+  const dateToday = todayUK();
+  const jobs = getTodaysJobsFromDrive(
+    operative,
+    dateToday
+  );
+
+  console.log("Operative: " + operative);
+  console.log("Date: " + dateToday);
+  console.log("Jobs found: " + jobs.length);
+  console.log(JSON.stringify(jobs));
+}
+
+
+function testOperativeFolder() {
+  const operative = "Shaun Maley";
+  const folderId = getOperativeFolderId(operative);
+  const folder = DriveApp.getFolderById(folderId);
+
+  console.log("Operative: " + operative);
+  console.log("Folder: " + folder.getName());
+  console.log("URL: " + folder.getUrl());
+}
