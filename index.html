@@ -374,6 +374,13 @@
     .qf76-options input:checked+span{border-color:var(--mpc-cyan);background:#e8f8fb;color:var(--mpc-cyan-dark)}
     .qf76-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
 
+    .document-hub-item{border:1px solid #dce5ea;border-radius:16px;background:#f8fbfc;padding:14px;margin-bottom:12px}
+    .document-hub-title{color:var(--mpc-charcoal);font-weight:900;overflow-wrap:anywhere}
+    .document-hub-meta{color:var(--mpc-slate);font-size:12px;font-weight:700;margin-top:5px}
+    .document-hub-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}
+    .document-hub-actions .button{margin-top:0;padding:11px;font-size:13px}
+    @media(min-width:600px){.document-hub-actions{grid-template-columns:1fr 1fr}}
+
     footer { text-align: center; padding: 18px; color: rgba(255,255,255,0.78); font-size: 12px; font-weight: 700; }
 
     @media (min-width: 700px) {
@@ -438,6 +445,16 @@
 
         <label for="vehicleReg">Vehicle Registration</label>
         <input id="vehicleReg" type="text" placeholder="Vehicle registration" />
+
+        <label for="vehicleMileage">Current Vehicle Mileage</label>
+        <input
+          id="vehicleMileage"
+          type="number"
+          inputmode="numeric"
+          min="0"
+          step="1"
+          placeholder="Enter the current mileage"
+        />
 
         <div id="vanChecks"></div>
 
@@ -522,21 +539,11 @@
 
           <div class="workflow-list">
             <div class="workflow-step complete"><div class="workflow-icon">🚐</div><div class="workflow-copy"><strong>Vehicle Inspection</strong><span>Completed before job access</span></div><button class="workflow-action secondary" disabled>Complete</button></div>
-            <div class="workflow-step"><div class="workflow-icon">📂</div><div class="workflow-copy"><strong>Job Pack – Electrical / Civils</strong><span>View documents assigned to this job</span></div><button class="workflow-action" onclick="showWorkflowSection('documentsPanel')">Open</button></div>
+            <div class="workflow-step"><div class="workflow-icon">📂</div><div class="workflow-copy"><strong>Document &amp; Forms Hub</strong><span>Open documents or complete recognised forms live</span></div><button class="workflow-action" onclick="showWorkflowSection('documentsPanel')">Open</button></div>
             <div class="workflow-step" id="stepRiskAssessment"><div class="workflow-icon">⚠️</div><div class="workflow-copy"><strong>Daily Risk Assessment</strong><span>Record site conditions and changes</span></div><button class="workflow-action" onclick="showWorkflowSection('riskAssessmentPanel')">Complete</button></div>
             <div class="workflow-step" id="stepPermit"><div class="workflow-icon">⛏️</div><div class="workflow-copy"><strong>Permit to Dig</strong><span>Confirm service detection and controls</span></div><button class="workflow-action" onclick="showWorkflowSection('permitPanel')">Complete</button></div>
             <div class="workflow-step" id="stepRams"><div class="workflow-icon">📄</div><div class="workflow-copy"><strong>RAMS – Read and Sign</strong><span>Confirm RAMS have been read</span></div><button class="workflow-action" onclick="showWorkflowSection('ramsPanel')">Open</button></div>
             <div class="workflow-step" id="stepWorkInstruction"><div class="workflow-icon">📋</div><div class="workflow-copy"><strong>Work Instruction – Read and Sign</strong><span>Review the job-specific instruction</span></div><button class="workflow-action" onclick="showWorkflowSection('workInstructionPanel')">Open</button></div>
-            <div class="workflow-step" id="stepQF76"><div class="workflow-icon">🏗️</div><div class="workflow-copy"><strong>QF76 Substation Installation Checklist</strong><span>Complete the client&apos;s checklist live onsite</span></div><button class="workflow-action" onclick="openLiveForm('QF76')">Open</button></div>
-            <div class="workflow-step" id="stepQF112">
-              <div class="workflow-icon">⚡</div>
-              <div class="workflow-copy">
-                <strong>QF112 Secondary Substation Earthing Test Form</strong>
-                <span>Complete the client&apos;s earthing test form live onsite</span>
-              </div>
-              <button class="workflow-action" onclick="openLiveForm('QF112')">Open</button>
-            </div>
-
             <div class="workflow-step" id="stepPlant"><div class="workflow-icon">🚜</div><div class="workflow-copy"><strong>Plant Check Sheets</strong><span>Record plant used onsite</span></div><button class="workflow-action" onclick="showWorkflowSection('plantChecksPanel')">Open</button></div>
             <div class="workflow-step" id="stepEvidence"><div class="workflow-icon">📷</div><div class="workflow-copy"><strong>Completion Paperwork &amp; Photo Evidence</strong><span>Upload completion photos</span></div><button class="workflow-action" onclick="showWorkflowSection('evidencePanel')">Upload</button></div>
             <div class="workflow-step" id="stepFinish"><div class="workflow-icon">✅</div><div class="workflow-copy"><strong>Final Job Sign-Off</strong><span>Confirm all work and paperwork are complete</span></div><button class="workflow-action" onclick="showWorkflowSection('finishJobPanel')">Finish</button></div>
@@ -544,7 +551,7 @@
         </div>
 
         <div class="job-grid" style="margin-top:16px;">
-          <div id="documentsPanel" class="panel hidden"><h2>Job Pack – Electrical / Civils</h2><div id="documentsSelectedJob" class="pill" style="margin-bottom:14px;"></div><p id="documentsIntro">Only documents linked to the selected job are shown.</p><div id="documentList"></div></div>
+          <div id="documentsPanel" class="panel hidden"><h2>Document &amp; Forms Hub</h2><div id="documentsSelectedJob" class="pill" style="margin-bottom:14px;"></div><p id="documentsIntro">Only documents linked to the selected job are shown.</p><div id="documentList"></div></div>
           <div id="riskAssessmentPanel" class="panel hidden"><h2>Daily Risk Assessment</h2><div class="section-intro">Complete before work starts and again if site conditions change.</div><div class="form-grid"><div><label for="riskWeather">Weather Conditions</label><select id="riskWeather"><option value="">Select...</option><option>Dry</option><option>Wet</option><option>High Winds</option><option>Snow / Ice</option></select></div><div><label for="riskServices">Underground Services Located?</label><select id="riskServices"><option value="">Select...</option><option>Yes</option><option>No</option><option>Not Applicable</option></select></div></div><label for="riskNotes">Hazards / Controls / Comments</label><textarea id="riskNotes"></textarea><button class="button" onclick="saveLocalWorkflowStep('riskAssessment')">Save Risk Assessment</button><div id="riskAssessmentMessage"></div></div>
           <div id="permitPanel" class="panel hidden"><h2>Permit to Dig</h2><div class="section-intro">Confirm service-location and excavation controls.</div><div class="form-grid"><div><label for="permitNumber">Permit Number</label><input id="permitNumber" type="text"></div><div><label for="permitScan">CAT &amp; Genny Scan Completed?</label><select id="permitScan"><option value="">Select...</option><option>Yes</option><option>No</option></select></div><div><label for="permitMarked">Services Marked?</label><select id="permitMarked"><option value="">Select...</option><option>Yes</option><option>No</option></select></div></div><label for="permitNotes">Permit Notes</label><textarea id="permitNotes"></textarea><button class="button" onclick="saveLocalWorkflowStep('permit')">Save Permit to Dig</button><div id="permitMessage"></div></div>
           <div id="ramsPanel" class="panel hidden"><h2>RAMS – Read and Sign</h2><div class="section-intro">Open the RAMS from the job pack and confirm below.</div><label><input id="ramsConfirm" type="checkbox" style="width:auto;margin-right:8px;"> I have read and understood the RAMS.</label><label for="ramsSignature">Full Name</label><input id="ramsSignature" type="text"><button class="button" onclick="saveLocalWorkflowStep('rams')">Confirm RAMS Sign-Off</button><div id="ramsMessage"></div></div>
@@ -558,6 +565,7 @@
               <span id="liveFormStatusPill" class="pill">Not Started</span>
             </div>
 
+            <div id="liveFormSourceDocument" class="section-intro hidden"></div>
             <div id="liveFormContents"></div>
 
             <div class="qf76-actions">
@@ -607,6 +615,8 @@
     let activeDelay = null;
     let delayTimerInterval = null;
     let delayActionInProgress = false;
+    let formTemplates = [];
+    let currentLiveFormSourceDocument = null;
 
     async function apiPost(payload) {
       const response = await fetch(WEB_APP_URL, {
@@ -726,6 +736,24 @@
         };
 
         jobTracking = dashboardData.tracking || {};
+
+        try {
+          const templatesData = await apiPost({
+            action: "getFormTemplates"
+          });
+
+          formTemplates = templatesData.templates || [];
+
+          formTemplates.forEach(template => {
+            if (template.definition && template.formId) {
+              FORM_DEFINITIONS[template.formId] =
+                template.definition;
+            }
+          });
+        } catch (templateError) {
+          console.error("Could not load form templates", templateError);
+          formTemplates = [];
+        }
 
         selectedJob = null;
         vanCheckComplete = dashboardData.vanCheckComplete === true;
@@ -1936,6 +1964,28 @@
         "liveFormMessage"
       ).innerHTML = "";
 
+      const sourceBox = document.getElementById(
+        "liveFormSourceDocument"
+      );
+
+      if (currentLiveFormSourceDocument) {
+        sourceBox.classList.remove("hidden");
+        sourceBox.innerHTML = `
+          Source document:
+          <a
+            href="${safeText(currentLiveFormSourceDocument.url)}"
+            target="_blank"
+            rel="noopener"
+            style="font-weight:900;color:#0797b3;"
+          >
+            ${safeText(currentLiveFormSourceDocument.name)}
+          </a>
+        `;
+      } else {
+        sourceBox.classList.add("hidden");
+        sourceBox.innerHTML = "";
+      }
+
       setLiveFormReadOnly(false);
       renderLiveForm(definition, {});
 
@@ -2098,6 +2148,7 @@
       // Clear any job opened by the previous user.
       selectedJob = null;
       currentJobTracking = null;
+      currentLiveFormSourceDocument = null;
       activeDelay = null;
       stopDelayTicker();
 
@@ -2172,6 +2223,68 @@
       });
     }
 
+    function getDocumentBaseName(documentItem) {
+      return String(
+        documentItem.originalName ||
+        documentItem.name ||
+        ""
+      ).toLowerCase();
+    }
+
+    function matchDocumentTemplate(documentItem) {
+      const fileName = getDocumentBaseName(documentItem);
+
+      const registryMatch = formTemplates.find(template =>
+        (template.patterns || []).some(pattern =>
+          fileName.includes(
+            String(pattern || "").toLowerCase()
+          )
+        )
+      );
+
+      if (
+        registryMatch &&
+        FORM_DEFINITIONS[registryMatch.formId]
+      ) {
+        return registryMatch;
+      }
+
+      if (
+        (fileName.includes("qf76") ||
+         fileName.includes("qf 76") ||
+         fileName.includes("secondary substation installation checklist")) &&
+        FORM_DEFINITIONS.QF76
+      ) {
+        return {
+          formId: "QF76",
+          title: "Secondary Substation Installation Checklist"
+        };
+      }
+
+      if (
+        (fileName.includes("qf112") ||
+         fileName.includes("qf 112") ||
+         fileName.includes("secondary substation earthing test form")) &&
+        FORM_DEFINITIONS.QF112
+      ) {
+        return {
+          formId: "QF112",
+          title: "Secondary Substation Earthing Test Form"
+        };
+      }
+
+      return null;
+    }
+
+    function openDocumentAsLiveForm(formId, documentIndex) {
+      if (!selectedJob) return;
+
+      currentLiveFormSourceDocument =
+        (selectedJob.documents || [])[documentIndex] || null;
+
+      openLiveForm(formId);
+    }
+
     function renderDocuments() {
       const list = document.getElementById("documentList");
       const intro = document.getElementById("documentsIntro");
@@ -2189,18 +2302,48 @@
 
       if (documents.length === 0) {
         list.innerHTML =
-          `<div class="error">No documents are currently assigned to this job folder.</div>`;
+          `<div class="error">No documents are currently inside this job folder.</div>`;
         return;
       }
 
-      list.innerHTML = documents.map(doc => `
-        <a class="document-link"
-           href="${safeText(doc.url)}"
-           target="_blank"
-           rel="noopener">
-          📄 ${safeText(doc.name)}
-        </a>
-      `).join("");
+      list.innerHTML = documents.map((doc, index) => {
+        const template = matchDocumentTemplate(doc);
+
+        return `
+          <div class="document-hub-item">
+            <div class="document-hub-title">
+              📄 ${safeText(doc.name)}
+            </div>
+
+            <div class="document-hub-meta">
+              ${template
+                ? `Editable template recognised: ${safeText(template.title || template.formId)}`
+                : `View-only source document • ${safeText(doc.type || "File")}`
+              }
+            </div>
+
+            <div class="document-hub-actions">
+              <a
+                class="button secondary"
+                href="${safeText(doc.url)}"
+                target="_blank"
+                rel="noopener"
+              >
+                Open Original
+              </a>
+
+              ${template ? `
+                <button
+                  class="button"
+                  onclick="openDocumentAsLiveForm('${safeText(template.formId)}', ${index})"
+                >
+                  Complete Live
+                </button>
+              ` : ""}
+            </div>
+          </div>
+        `;
+      }).join("");
     }
 
     async function submitVanCheck() {
@@ -2209,6 +2352,8 @@
       message.innerHTML = "";
 
       const vehicleReg = document.getElementById("vehicleReg").value.trim();
+      const mileageText = document.getElementById("vehicleMileage").value.trim();
+      const mileage = Number(mileageText);
       const notes = document.getElementById("vanCheckNotes").value.trim();
       const results = [];
       let hasDefect = false;
@@ -2216,6 +2361,18 @@
       if (!vehicleReg) {
         message.innerHTML =
           `<div class="error">Please enter the vehicle registration.</div>`;
+        return;
+      }
+
+      if (!mileageText) {
+        message.innerHTML =
+          `<div class="error">Please enter the current vehicle mileage.</div>`;
+        return;
+      }
+
+      if (!Number.isInteger(mileage) || mileage < 0) {
+        message.innerHTML =
+          `<div class="error">Please enter a valid whole-number mileage.</div>`;
         return;
       }
 
@@ -2254,7 +2411,7 @@
           action: "submitVanCheck",
           name: currentOperative.name,
           vehicle: vehicleReg,
-          mileage: "",
+          mileage: mileage,
           notes: JSON.stringify({
             notes: notes,
             checks: results
@@ -2368,6 +2525,7 @@
       jobActionInProgress = false;
 
       document.getElementById("pinInput").value = "";
+      document.getElementById("vehicleMileage").value = "";
       document.getElementById("vanCheckNotes").value = "";
       document.getElementById("evidenceNotes").value = "";
       document.getElementById("evidencePhotos").value = "";
