@@ -460,6 +460,25 @@
     .login-switch button{border:0;border-radius:10px;padding:11px;font-weight:900;background:transparent;color:var(--mpc-slate);cursor:pointer}
     .login-switch button.active{background:#fff;color:var(--mpc-charcoal);box-shadow:0 5px 14px rgba(0,0,0,.08)}
     .admin-summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:16px}
+
+    .admin-loading-screen{display:flex;min-height:430px;align-items:center;justify-content:center;text-align:center;padding:32px}
+    .admin-loading-card{width:min(100%,460px);padding:30px;border-radius:24px;background:rgba(255,255,255,.97);border:1px solid var(--mpc-border);box-shadow:0 18px 45px rgba(0,0,0,.24)}
+    .admin-loader{width:54px;height:54px;margin:0 auto 18px;border:5px solid #dceff3;border-top-color:var(--mpc-cyan);border-radius:50%;animation:adminSpin .85s linear infinite}
+    @keyframes adminSpin{to{transform:rotate(360deg)}}
+    .admin-loading-card h2{margin:0 0 8px}.admin-loading-card p{margin:0;color:var(--mpc-slate);font-weight:700}
+    .admin-date-line{margin-top:5px!important;color:var(--mpc-slate);font-weight:800}
+    .attention-panel{margin-top:16px;padding:16px;border-radius:17px;border:1px solid #f0d7a4;background:#fffaf0}
+    .attention-panel.clear{border-color:#bde5ca;background:#f2fbf5}
+    .attention-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;font-weight:900;color:var(--mpc-charcoal)}
+    .attention-list{display:grid;gap:8px}.attention-item{padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.78);font-size:13px;font-weight:800;color:var(--mpc-charcoal)}
+    .admin-summary-card.loading strong{font-size:0}.admin-summary-card.loading strong:after{content:'…';font-size:25px}.admin-summary-card.loading span{opacity:.65}
+    @media(max-width:600px){
+      .logo-section{margin-top:-12px}
+      .logo-section img{width:68%;max-width:300px;max-height:112px;padding:11px 15px;border-radius:18px}
+      main{margin-top:14px}.panel,.card{padding:18px;border-radius:20px}
+      .admin-toolbar{align-items:flex-start}.admin-toolbar .button{min-width:112px;padding:12px}
+    }
+
     .admin-summary-card{padding:16px;border-radius:17px;background:#f8fbfc;border:1px solid #dce5ea}
     .admin-summary-card strong{display:block;font-size:25px;color:var(--mpc-charcoal)}
     .admin-summary-card span{font-size:11px;font-weight:900;color:var(--mpc-slate);text-transform:uppercase;letter-spacing:.6px}
@@ -782,19 +801,24 @@
 
 
     <section id="adminDashboardView" class="hidden">
+      <div id="adminLoadingScreen" class="admin-loading-screen hidden">
+        <div class="admin-loading-card"><div class="admin-loader"></div><h2>Loading company data</h2><p id="adminLoadingMessage">Checking today&apos;s jobs and operatives...</p></div>
+      </div>
+      <div id="adminDashboardContent" class="hidden">
       <div class="panel">
         <div class="admin-toolbar">
-          <div><h2 id="adminWelcome" style="margin-bottom:4px;">Manager Dashboard</h2><p id="adminUpdated" style="margin:0;">Live operational overview</p></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="button secondary" onclick="loadAdminDashboard()">Refresh</button><button class="button danger" onclick="logoutManager()">Logout</button></div>
+          <div><h2 id="adminWelcome" style="margin-bottom:4px;">Manager Dashboard</h2><p id="adminGreeting" style="margin:0;">Live operational overview</p><p id="adminUpdated" class="admin-date-line">Preparing dashboard...</p></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="button secondary" onclick="loadAdminDashboard(false)">Refresh</button><button class="button danger" onclick="logoutManager()">Logout</button></div>
         </div>
         <div class="admin-summary-grid">
-          <div class="admin-summary-card"><strong id="adminOperativesCount">0</strong><span>Operatives</span></div>
-          <div class="admin-summary-card"><strong id="adminJobsCount">0</strong><span>Jobs Today</span></div>
-          <div class="admin-summary-card"><strong id="adminOnSiteCount">0</strong><span>On Site</span></div>
-          <div class="admin-summary-card"><strong id="adminCompletedCount">0</strong><span>Completed</span></div>
-          <div class="admin-summary-card"><strong id="adminDelayCount">0</strong><span>Active Delays</span></div>
-          <div class="admin-summary-card"><strong id="adminVanMissingCount">0</strong><span>Van Checks Due</span></div>
+          <div class="admin-summary-card loading"><strong id="adminOperativesCount">…</strong><span>Operatives</span></div>
+          <div class="admin-summary-card loading"><strong id="adminJobsCount">…</strong><span>Jobs Today</span></div>
+          <div class="admin-summary-card loading"><strong id="adminOnSiteCount">…</strong><span>On Site</span></div>
+          <div class="admin-summary-card loading"><strong id="adminCompletedCount">…</strong><span>Completed</span></div>
+          <div class="admin-summary-card loading"><strong id="adminDelayCount">…</strong><span>Active Delays</span></div>
+          <div class="admin-summary-card loading"><strong id="adminVanMissingCount">…</strong><span>Van Checks Due</span></div>
         </div>
+        <div id="adminAttentionPanel" class="attention-panel"><div class="attention-title"><span>⚠️ Attention Required</span><span id="adminAttentionCount" class="pill">Loading</span></div><div id="adminAttentionList" class="attention-list"><div class="attention-item">Checking live operations...</div></div></div>
         <div class="admin-nav">
           <button id="adminOverviewTab" class="active" onclick="showAdminSection('overview')">Live Overview</button>
           <button id="adminCreateTab" onclick="showAdminSection('creator')">Create New Job</button>
@@ -847,6 +871,7 @@
             <div class="small-note">Files are uploaded after the folder is created. Keep this page open until the success message appears.</div>
           </div>
         </div>
+      </div>
       </div>
     </section>
 
@@ -973,21 +998,28 @@
         document.getElementById("loginView").classList.add("hidden");
         document.getElementById("adminDashboardView").classList.remove("hidden");
         document.getElementById("adminWelcome").textContent = `Welcome, ${data.name}`;
-        await loadAdminDashboard();
+        await loadAdminDashboard(true);
         setCreatorDefaultDate();
       } catch (error) { message.innerHTML = `<div class="error">${safeText(error.message)}</div>`; }
     }
 
-    async function loadAdminDashboard() {
+    async function loadAdminDashboard(initialLoad = false) {
       if (!currentManager) return;
       const message = document.getElementById("adminDashboardMessage");
-      message.innerHTML = '<div class="section-intro">Refreshing today&apos;s live data...</div>';
+      const loading = document.getElementById("adminLoadingScreen");
+      const content = document.getElementById("adminDashboardContent");
+      if (initialLoad) { loading.classList.remove("hidden"); content.classList.add("hidden"); }
+      else message.innerHTML = '<div class="section-intro">Refreshing today&apos;s live data...</div>';
       try {
         const data = await apiPost({ action: "getAdminDashboard", managerName: currentManager.name, token: currentManager.token });
         adminDashboardData = data;
         renderAdminDashboard(data);
         message.innerHTML = "";
-      } catch (error) { message.innerHTML = `<div class="error">${safeText(error.message)}</div>`; }
+        loading.classList.add("hidden"); content.classList.remove("hidden");
+      } catch (error) {
+        loading.classList.add("hidden"); content.classList.remove("hidden");
+        message.innerHTML = `<div class="error">${safeText(error.message)}</div>`;
+      }
     }
 
     function adminStatusClass(status) {
@@ -1000,6 +1032,11 @@
 
     function renderAdminDashboard(data) {
       const s = data.summary || {};
+      document.querySelectorAll(".admin-summary-card").forEach(card => card.classList.remove("loading"));
+      const now = new Date();
+      const hour = now.getHours();
+      const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+      document.getElementById("adminGreeting").textContent = `${greeting} — live operational overview`;
       document.getElementById("adminOperativesCount").textContent = s.operatives || 0;
       document.getElementById("adminJobsCount").textContent = s.jobs || 0;
       document.getElementById("adminOnSiteCount").textContent = s.onSite || 0;
@@ -1009,6 +1046,19 @@
       document.getElementById("adminUpdated").textContent = `Updated ${data.generatedAt || "now"}`;
       const warnings = (s.activeDelays || 0) + (s.vanChecksDue || 0);
       document.getElementById("adminAlertPill").textContent = warnings ? `${warnings} Warning${warnings === 1 ? "" : "s"}` : "No active warnings";
+      const attentionItems = [];
+      (data.operatives || []).forEach(op => {
+        if (!op.vanCheckComplete) attentionItems.push(`${safeText(op.name)} has not completed today&apos;s van check.`);
+        (op.jobs || []).forEach(job => {
+          if (job.activeDelay) attentionItems.push(`${safeText(op.name)} — ${safeText(job.jobName)} has an active delay${job.activeDelay.reason ? `: ${safeText(job.activeDelay.reason)}` : "."}`);
+        });
+      });
+      const attentionPanel = document.getElementById("adminAttentionPanel");
+      const attentionCount = document.getElementById("adminAttentionCount");
+      const attentionList = document.getElementById("adminAttentionList");
+      attentionPanel.classList.toggle("clear", attentionItems.length === 0);
+      attentionCount.textContent = attentionItems.length ? `${attentionItems.length} item${attentionItems.length === 1 ? "" : "s"}` : "All clear";
+      attentionList.innerHTML = attentionItems.length ? attentionItems.slice(0, 8).map(item => `<div class="attention-item">${item}</div>`).join("") : '<div class="attention-item">No active delays or outstanding van checks.</div>';
       const rows = [];
       (data.operatives || []).forEach(op => {
         if (!(op.jobs || []).length) rows.push({ op, job: null });
@@ -1036,7 +1086,7 @@
     }
 
     function closeAdminJobDetails() { document.getElementById("adminJobModal").classList.add("hidden"); }
-    function logoutManager() { currentManager = null; adminDashboardData = null; document.getElementById("adminDashboardView").classList.add("hidden"); document.getElementById("loginView").classList.remove("hidden"); document.getElementById("managerPinInput").value = ""; }
+    function logoutManager() { currentManager = null; adminDashboardData = null; document.getElementById("adminDashboardView").classList.add("hidden"); document.getElementById("adminLoadingScreen").classList.add("hidden"); document.getElementById("adminDashboardContent").classList.add("hidden"); document.getElementById("loginView").classList.remove("hidden"); document.getElementById("managerPinInput").value = ""; }
 
 
     function showAdminSection(section) {
