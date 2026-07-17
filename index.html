@@ -3229,7 +3229,7 @@
       submitButton.textContent = "Submitting van check...";
 
       try {
-        await apiPost({
+        const vanCheckResponse = await apiPost({
           action: "submitVanCheck",
           name: currentOperative.name,
           vehicle: vehicleReg,
@@ -3242,8 +3242,12 @@
         });
 
         vanCheckComplete = true;
-        message.innerHTML =
-          `<div class="success">Van check submitted. Job access unlocked.</div>`;
+        message.innerHTML = `
+          <div class="success">
+            Van check submitted. Job access unlocked.
+            ${vanCheckResponse.pdfUrl ? `<br><a href="${safeText(vanCheckResponse.pdfUrl)}" target="_blank" rel="noopener">Open van-check PDF</a>` : ""}
+          </div>
+        `;
 
         setTimeout(unlockJobAccess, 500);
 
