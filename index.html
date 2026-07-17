@@ -2672,6 +2672,9 @@
       loadActiveDelay();
       loadDocumentGate();
       loadJobFormStatuses();
+      ensureJobDocumentsLoaded(selectedJob).catch(error =>
+        console.error("Could not preload job documents", error)
+      );
       document.getElementById("jobWorkflowPanel").scrollIntoView({
         behavior:"smooth",
         block:"start"
@@ -2702,6 +2705,9 @@
 
     function getJobDocumentMetrics(job) {
       const documents = job.documents || [];
+      if (job.documentsLoaded !== true) {
+        return { documentCount: "—", formCount: "—" };
+      }
       const formCount = documents.filter(doc => /qf|form|checklist|record|sheet/i.test(doc.name || "")).length;
       return { documentCount: documents.length, formCount: formCount };
     }
@@ -2805,7 +2811,22 @@
       }).join("");
     }
 
-    function openJobDocuments(index) {
+    async function ensureJobDocumentsLoaded(job) {
+      if (!job || job.documentsLoaded === true) return;
+
+      const list = document.getElementById("documentList");
+      if (list) list.innerHTML = `<div class="loading-card">Loading this job’s documents...</div>`;
+
+      const data = await apiPost({
+        action: "getJobDocuments",
+        folderId: job.folderId
+      });
+
+      job.documents = data.documents || [];
+      job.documentsLoaded = true;
+    }
+
+    async function openJobDocuments(index) {
       selectedJob = currentOperative.jobs[index];
 
       document.getElementById("evidencePanel").classList.add("hidden");
@@ -2814,12 +2835,19 @@
       document.getElementById("documentsSelectedJob").textContent =
         `${selectedJob.jobName || "Unnamed Job"} • ${selectedJob.site || "Site not entered"}`;
 
-      renderDocuments();
-
       document.getElementById("documentsPanel").scrollIntoView({
         behavior: "smooth",
         block: "start"
       });
+
+      try {
+        await ensureJobDocumentsLoaded(selectedJob);
+        await loadJobFormStatuses();
+        renderDocuments();
+      } catch (error) {
+        document.getElementById("documentList").innerHTML =
+          `<div class="error">${safeText(error.message || "Documents could not be loaded.")}</div>`;
+      }
     }
 
     function openJobEvidence(index) {
