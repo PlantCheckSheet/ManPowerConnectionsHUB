@@ -316,6 +316,25 @@
       font-weight: 900;
     }
 
+    .smart-workflow-hero{margin-top:14px;padding:18px;border-radius:18px;background:linear-gradient(135deg,#25313b,#3d4b56);color:#fff;box-shadow:0 14px 30px rgba(0,0,0,.18)}
+    .smart-workflow-label{font-size:11px;font-weight:900;letter-spacing:1.3px;text-transform:uppercase;color:#9eeafa}
+    .smart-workflow-next{font-size:22px;font-weight:900;margin:6px 0 4px}
+    .smart-workflow-description{font-size:13px;color:rgba(255,255,255,.78);font-weight:700}
+    .smart-progress-head{display:flex;justify-content:space-between;gap:12px;margin-top:16px;font-size:12px;font-weight:900}
+    .smart-progress-track{height:11px;background:rgba(255,255,255,.16);border-radius:999px;overflow:hidden;margin-top:8px}
+    .smart-progress-fill{height:100%;background:linear-gradient(90deg,var(--mpc-cyan),#8be6f5);border-radius:999px;transition:width .35s ease}
+    .smart-next-button{margin-top:14px;background:#fff;color:var(--mpc-charcoal);box-shadow:none}
+    .smart-workflow-list{display:grid;gap:10px;margin-top:15px}
+    .smart-workflow-step{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:11px;align-items:center;padding:12px;border:1px solid #dce5ea;border-radius:14px;background:#f8fbfc}
+    .smart-workflow-step.complete{background:#f0fdf4;border-color:#bbf7d0}
+    .smart-workflow-step.locked{opacity:.58}
+    .smart-step-number{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e8f8fb;color:var(--mpc-cyan-dark);font-weight:900}
+    .smart-workflow-step.complete .smart-step-number{background:#16a34a;color:#fff}
+    .smart-step-title{font-weight:900;color:var(--mpc-charcoal);font-size:13px}
+    .smart-step-copy{font-size:11px;color:var(--mpc-slate);font-weight:700;margin-top:2px}
+    .smart-step-state{font-size:11px;font-weight:900;padding:7px 9px;border-radius:999px;background:#eef6f8;color:var(--mpc-charcoal)}
+    .smart-workflow-step.complete .smart-step-state{background:#dcfce7;color:#166534}
+
     .workflow-panel { margin-top:16px; }
     .workflow-list { display:grid; gap:12px; margin-top:16px; }
     .workflow-step { display:grid; grid-template-columns:46px 1fr auto; gap:12px; align-items:center; padding:14px; border:1px solid #dce5ea; border-radius:16px; background:#f8fbfc; }
@@ -674,6 +693,16 @@
 
         <div id="jobWorkflowPanel" class="panel workflow-panel hidden">
           <div class="job-header"><div><h2 id="workflowJobTitle" style="margin-bottom:4px;">Job Workflow</h2><p id="workflowJobSubtitle" style="margin:0;">Complete the required sections for this job.</p></div><span class="pill" id="workflowProgressPill">Pre-start documents pending</span></div>
+          <div id="smartWorkflowHero" class="smart-workflow-hero">
+            <div class="smart-workflow-label">Next required action</div>
+            <div id="smartWorkflowNext" class="smart-workflow-next">Loading workflow...</div>
+            <div id="smartWorkflowDescription" class="smart-workflow-description">Checking the job requirements and current progress.</div>
+            <div class="smart-progress-head"><span>Overall job progress</span><span id="smartWorkflowPercent">0%</span></div>
+            <div class="smart-progress-track"><div id="smartWorkflowProgress" class="smart-progress-fill" style="width:0%"></div></div>
+            <button id="smartWorkflowButton" class="button smart-next-button" onclick="runSmartNextAction()" disabled>Preparing next step...</button>
+          </div>
+          <div id="smartWorkflowList" class="smart-workflow-list"></div>
+
           <div class="tracking-card">
             <div class="job-header" style="margin-bottom:0;">
               <div>
@@ -2857,6 +2886,7 @@
 
     const workflowSections = ["documentsPanel","liveFormPanel","plantChecksPanel","evidencePanel","finishJobPanel"];
     const workflowState = {riskAssessment:false,permit:false,rams:false,workInstruction:false,plant:false,evidence:false,finish:false};
+    let currentSmartWorkflow = null;
     function hideWorkflowSections(){workflowSections.forEach(id=>{const p=document.getElementById(id);if(p)p.classList.add("hidden");});}
     function showWorkflowSection(id){
       if(!selectedJob)return;
@@ -2876,6 +2906,74 @@
           `${selectedJob.jobName||"Unnamed Job"} • ${selectedJob.site||"Site not entered"}`;
       }
     }
+
+    function getSmartActionHandler(step){
+      if(!step)return null;
+      const actions={
+        van_check:()=>document.getElementById("vanCheckView").scrollIntoView({behavior:"smooth",block:"start"}),
+        accept_job:()=>performJobAction("accept"),
+        start_travel:()=>performJobAction("startTravel"),
+        arrive_on_site:()=>performJobAction("arriveOnSite"),
+        docs_ack:()=>showWorkflowSection("documentsPanel"),
+        photos_before:()=>{showWorkflowSection("evidencePanel");const radio=document.querySelector('input[name="evidenceCategory"][value="Before Works"]');if(radio)radio.checked=true;},
+        start_work:()=>performJobAction("startWork"),
+        required_forms:()=>showWorkflowSection("documentsPanel"),
+        photos_complete:()=>{showWorkflowSection("evidencePanel");const radio=document.querySelector('input[name="evidenceCategory"][value="Completed Works"]');if(radio)radio.checked=true;},
+        complete_job:()=>showWorkflowSection("finishJobPanel")
+      };
+      return actions[step.actionType]||null;
+    }
+
+    function runSmartNextAction(){
+      if(!currentSmartWorkflow||!currentSmartWorkflow.nextStep)return;
+      const handler=getSmartActionHandler(currentSmartWorkflow.nextStep);
+      if(handler)handler();
+    }
+
+    function renderSmartWorkflow(){
+      const heroNext=document.getElementById("smartWorkflowNext");
+      const heroDescription=document.getElementById("smartWorkflowDescription");
+      const percent=document.getElementById("smartWorkflowPercent");
+      const fill=document.getElementById("smartWorkflowProgress");
+      const button=document.getElementById("smartWorkflowButton");
+      const list=document.getElementById("smartWorkflowList");
+      if(!currentSmartWorkflow)return;
+      const progress=Number(currentSmartWorkflow.progress||0);
+      percent.textContent=progress+"%";
+      fill.style.width=progress+"%";
+      const next=currentSmartWorkflow.nextStep;
+      if(next){
+        heroNext.textContent=next.title;
+        heroDescription.textContent=next.description||"Complete this step to continue.";
+        button.textContent=next.title;
+        button.disabled=!next.unlocked;
+      }else{
+        heroNext.textContent="Workflow complete";
+        heroDescription.textContent="All required job steps have been completed.";
+        button.textContent="All steps complete";
+        button.disabled=true;
+      }
+      list.innerHTML=(currentSmartWorkflow.steps||[]).map((step,index)=>`
+        <div class="smart-workflow-step ${step.complete?"complete":""} ${!step.unlocked?"locked":""}">
+          <div class="smart-step-number">${step.complete?"✓":index+1}</div>
+          <div><div class="smart-step-title">${safeText(step.title)}</div><div class="smart-step-copy">${safeText(step.description||"")}</div></div>
+          <span class="smart-step-state">${step.complete?"Complete":step.unlocked?"Next":"Locked"}</span>
+        </div>`).join("");
+      document.getElementById("workflowProgressPill").textContent=progress+"% complete";
+    }
+
+    async function loadSmartWorkflow(){
+      if(!selectedJob||!currentOperative)return;
+      try{
+        currentSmartWorkflow=await apiPost({action:"getJobWorkflow",name:currentOperative.name,folderId:selectedJob.folderId});
+        renderSmartWorkflow();
+      }catch(error){
+        currentSmartWorkflow=null;
+        document.getElementById("smartWorkflowNext").textContent="Workflow could not be loaded";
+        document.getElementById("smartWorkflowDescription").textContent=error.message||"Please refresh and try again.";
+      }
+    }
+
     function openJobWorkflow(index){
       selectedJob=currentOperative.jobs[index];
       currentDocumentGate={
@@ -2896,6 +2994,7 @@
       loadActiveDelay();
       loadDocumentGate();
       loadJobFormStatuses();
+      loadSmartWorkflow();
       ensureJobDocumentsLoaded(selectedJob).catch(error =>
         console.error("Could not preload job documents", error)
       );
@@ -3283,6 +3382,7 @@
         });
 
         await Promise.all([loadDocumentGate(),loadJobFormStatuses()]);
+        await loadSmartWorkflow();
         renderDocuments();
 
         document.getElementById("trackingMessage").innerHTML =
@@ -3586,6 +3686,7 @@
         document.getElementById("evidenceNotes").value = "";
         workflowState.evidence = true;
         updateWorkflowProgress();
+        await loadSmartWorkflow();
 
       } catch (error) {
         message.innerHTML =
