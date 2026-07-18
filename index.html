@@ -527,7 +527,31 @@
     @keyframes operativePulse{0%,70%,100%{transform:scale(.8);opacity:.45}35%{transform:scale(1.25);opacity:1;background:var(--mpc-cyan)}}
     @media(min-width:700px){.creator-grid{grid-template-columns:1fr 1fr}.creator-two{grid-template-columns:1fr 1fr}.form-choice-grid{grid-template-columns:1fr 1fr}.creator-wide{grid-column:1/-1}}
 
+  
+
+    .admin-map-shell { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:16px; align-items:start; }
+    #adminJobsMap { width:100%; min-height:560px; border-radius:18px; overflow:hidden; border:1px solid #dbe4ea; background:#eef3f6; }
+    .map-side-panel { display:flex; flex-direction:column; gap:10px; max-height:560px; overflow:auto; }
+    .map-job-card { background:#fff; border:1px solid #dbe4ea; border-radius:14px; padding:13px; cursor:pointer; transition:.15s ease; }
+    .map-job-card:hover { transform:translateY(-1px); box-shadow:0 8px 22px rgba(22,43,58,.09); }
+    .map-job-card strong { display:block; color:#162b3a; margin-bottom:4px; }
+    .map-job-card span { display:block; font-size:13px; color:#647482; margin-top:3px; }
+    .map-status-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:9px; }
+    .map-status-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; }
+    .map-legend { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+    .map-legend span { font-size:12px; color:#5d6c77; display:flex; align-items:center; }
+    .map-empty { padding:24px; text-align:center; border:1px dashed #cbd6dd; border-radius:14px; background:#f8fafb; color:#667681; }
+    .leaflet-popup-content { margin:14px 16px; min-width:220px; }
+    .map-popup-title { font-weight:800; font-size:15px; color:#162b3a; margin-bottom:7px; }
+    .map-popup-line { font-size:13px; color:#55646f; margin:4px 0; }
+    .map-popup-actions { display:flex; gap:7px; flex-wrap:wrap; margin-top:10px; }
+    .map-popup-actions button,.map-popup-actions a { border:0; border-radius:8px; padding:8px 10px; font-weight:700; font-size:12px; text-decoration:none; cursor:pointer; background:#12b8d4; color:#fff; }
+    .map-popup-actions a { background:#263b49; }
+    @media (max-width: 900px) { .admin-map-shell { grid-template-columns:1fr; } #adminJobsMap { min-height:430px; } .map-side-panel { max-height:none; } }
+
   </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 
 <body>
@@ -839,6 +863,7 @@
         <div id="adminAttentionPanel" class="attention-panel"><div class="attention-title"><span>⚠️ Attention Required</span><span id="adminAttentionCount" class="pill">Loading</span></div><div id="adminAttentionList" class="attention-list"><div class="attention-item">Checking live operations...</div></div></div>
         <div class="admin-nav">
           <button id="adminOverviewTab" class="active" onclick="showAdminSection('overview')">Live Overview</button>
+          <button id="adminMapTab" onclick="showAdminSection('map')">Jobs Map</button>
           <button id="adminCreateTab" onclick="showAdminSection('creator')">Create New Job</button>
         </div>
       </div>
@@ -849,6 +874,26 @@
         <div id="adminMobileList" class="admin-job-list"></div>
         <div class="admin-table-wrap">
           <table class="admin-table"><thead><tr><th>Operative</th><th>Vehicle</th><th>Van Check</th><th>Job</th><th>Status</th><th>Progress</th><th>Documents</th><th>Forms</th><th>Photos</th><th>Delay</th><th></th></tr></thead><tbody id="adminJobsTableBody"></tbody></table>
+        </div>
+      </div>
+
+      <div id="adminMapSection" class="panel hidden" style="margin-top:16px;">
+        <div class="job-header">
+          <div><h2 style="margin-bottom:4px;">Today’s Assigned Jobs</h2><p style="margin:0;">Interactive map of job locations and current operative progress.</p></div>
+          <button class="button secondary" onclick="loadAdminJobsMap(true)">Refresh Map</button>
+        </div>
+        <div id="adminMapMessage" style="margin:12px 0;"></div>
+        <div class="map-legend">
+          <span><i class="map-status-dot" style="background:#64748b"></i>Not accepted</span>
+          <span><i class="map-status-dot" style="background:#2563eb"></i>Travelling</span>
+          <span><i class="map-status-dot" style="background:#f59e0b"></i>On site</span>
+          <span><i class="map-status-dot" style="background:#16a34a"></i>In progress</span>
+          <span><i class="map-status-dot" style="background:#7c3aed"></i>Completed</span>
+          <span><i class="map-status-dot" style="background:#dc2626"></i>Delayed</span>
+        </div>
+        <div class="admin-map-shell" style="margin-top:14px;">
+          <div id="adminJobsMap"></div>
+          <div id="adminMapJobList" class="map-side-panel"><div class="map-empty">Open the map to load today’s jobs.</div></div>
         </div>
       </div>
 
@@ -1104,16 +1149,100 @@
     }
 
     function closeAdminJobDetails() { document.getElementById("adminJobModal").classList.add("hidden"); }
-    function logoutManager() { currentManager = null; adminDashboardData = null; document.getElementById("adminDashboardView").classList.add("hidden"); document.getElementById("adminLoadingScreen").classList.add("hidden"); document.getElementById("adminDashboardContent").classList.add("hidden"); document.getElementById("loginView").classList.remove("hidden"); document.getElementById("managerPinInput").value = ""; }
+    function logoutManager() { currentManager = null; adminDashboardData = null; adminMapLoaded = false; document.getElementById("adminDashboardView").classList.add("hidden"); document.getElementById("adminLoadingScreen").classList.add("hidden"); document.getElementById("adminDashboardContent").classList.add("hidden"); document.getElementById("loginView").classList.remove("hidden"); document.getElementById("managerPinInput").value = ""; }
 
+
+    let adminJobsMap = null;
+    let adminMapMarkers = {};
+    let adminMapLoaded = false;
 
     function showAdminSection(section) {
       const overview = section === "overview";
+      const map = section === "map";
+      const creator = section === "creator";
       document.getElementById("adminOverviewSection").classList.toggle("hidden", !overview);
-      document.getElementById("adminCreatorSection").classList.toggle("hidden", overview);
+      document.getElementById("adminMapSection").classList.toggle("hidden", !map);
+      document.getElementById("adminCreatorSection").classList.toggle("hidden", !creator);
       document.getElementById("adminOverviewTab").classList.toggle("active", overview);
-      document.getElementById("adminCreateTab").classList.toggle("active", !overview);
-      if (!overview) loadJobCreatorData();
+      document.getElementById("adminMapTab").classList.toggle("active", map);
+      document.getElementById("adminCreateTab").classList.toggle("active", creator);
+      if (creator) loadJobCreatorData();
+      if (map) {
+        setTimeout(() => {
+          if (adminJobsMap) adminJobsMap.invalidateSize();
+          if (!adminMapLoaded) loadAdminJobsMap(false);
+        }, 80);
+      }
+    }
+
+    function mapStatusColour(status, delayed) {
+      if (delayed) return "#dc2626";
+      const value = String(status || "").toLowerCase();
+      if (value === "completed") return "#7c3aed";
+      if (value === "in progress") return "#16a34a";
+      if (value === "on site" || value === "paused") return "#f59e0b";
+      if (value === "travelling") return "#2563eb";
+      if (value === "accepted") return "#0891b2";
+      return "#64748b";
+    }
+
+    function createMapPin(colour) {
+      return L.divIcon({
+        className: "",
+        html: `<div style="width:25px;height:25px;border-radius:50% 50% 50% 0;background:${colour};transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.35)"><div style="width:7px;height:7px;background:white;border-radius:50%;margin:6px"></div></div>`,
+        iconSize: [28, 35], iconAnchor: [14, 34], popupAnchor: [0, -30]
+      });
+    }
+
+    async function loadAdminJobsMap(forceRefresh) {
+      if (!currentManager) return;
+      const message = document.getElementById("adminMapMessage");
+      const list = document.getElementById("adminMapJobList");
+      message.innerHTML = '<div class="small-note">Locating today’s assigned jobs...</div>';
+      try {
+        const data = await apiPost({ action:"getAdminMapData", managerName:currentManager.name, token:currentManager.token, forceRefresh:Boolean(forceRefresh) });
+        if (!data.success) throw new Error(data.message || "Map data could not be loaded");
+        if (!window.L) throw new Error("The map library did not load. Check the device internet connection.");
+        if (!adminJobsMap) {
+          adminJobsMap = L.map("adminJobsMap", { zoomControl:true }).setView([52.4862, -1.8904], 8);
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19, attribution:"&copy; OpenStreetMap contributors" }).addTo(adminJobsMap);
+        }
+        Object.values(adminMapMarkers).forEach(marker => marker.remove());
+        adminMapMarkers = {};
+        const bounds = [];
+        const jobs = data.jobs || [];
+        const located = jobs.filter(job => Number(job.latitude) !== 0 && Number(job.longitude) !== 0 && Number.isFinite(Number(job.latitude)) && Number.isFinite(Number(job.longitude)));
+        located.forEach(job => {
+          const lat = Number(job.latitude), lng = Number(job.longitude);
+          const colour = mapStatusColour(job.status, job.activeDelay);
+          const marker = L.marker([lat,lng], { icon:createMapPin(colour) }).addTo(adminJobsMap);
+          marker.bindPopup(`<div class="map-popup-title">${safeText(job.jobName)}</div><div class="map-popup-line"><b>Operative:</b> ${safeText(job.operative)}</div><div class="map-popup-line"><b>Vehicle:</b> ${safeText(job.vehicle || "Not assigned")}</div><div class="map-popup-line"><b>Status:</b> ${safeText(job.activeDelay ? "Delayed — " + job.activeDelay : job.status)}</div><div class="map-popup-line"><b>Progress:</b> ${Number(job.progress || 0)}%</div><div class="map-popup-line">${safeText(job.address || job.site || "")}</div><div class="map-popup-actions"><button onclick="openAdminJobDetails('${safeText(job.operative)}','${safeText(job.folderId)}')">Open Job</button><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.address || (lat+','+lng))}">Directions</a></div>`);
+          adminMapMarkers[job.folderId] = marker;
+          bounds.push([lat,lng]);
+        });
+        if (bounds.length === 1) adminJobsMap.setView(bounds[0], 14);
+        else if (bounds.length > 1) adminJobsMap.fitBounds(bounds, { padding:[35,35] });
+        else adminJobsMap.setView([52.4862,-1.8904],8);
+        list.innerHTML = jobs.length ? jobs.map(job => {
+          const colour = mapStatusColour(job.status, job.activeDelay);
+          const locationText = job.latitude ? safeText(job.address || job.site) : "Location unavailable — check the address/postcode";
+          return `<div class="map-job-card" onclick="focusAdminMapJob('${safeText(job.folderId)}')"><strong>${safeText(job.jobName)}</strong><span>${safeText(job.operative)}${job.vehicle ? " • " + safeText(job.vehicle) : ""}</span><span>${locationText}</span><div class="map-status-row"><span><i class="map-status-dot" style="background:${colour}"></i>${safeText(job.activeDelay ? "Delayed" : job.status)}</span><b>${Number(job.progress || 0)}%</b></div></div>`;
+        }).join("") : '<div class="map-empty">No jobs are assigned for today.</div>';
+        const missing = jobs.length - located.length;
+        message.innerHTML = missing > 0 ? `<div class="warning">${missing} job${missing===1?"":"s"} could not be placed on the map. Add a complete address and postcode in the Jobs sheet or recreate the job.</div>` : `<div class="success">${located.length} job location${located.length===1?"":"s"} loaded.</div>`;
+        adminMapLoaded = true;
+        setTimeout(() => adminJobsMap.invalidateSize(), 100);
+      } catch (error) {
+        message.innerHTML = `<div class="error">${safeText(error.message)}</div>`;
+        list.innerHTML = '<div class="map-empty">The jobs map could not be loaded.</div>';
+      }
+    }
+
+    function focusAdminMapJob(folderId) {
+      const marker = adminMapMarkers[folderId];
+      if (!marker || !adminJobsMap) return;
+      adminJobsMap.setView(marker.getLatLng(), 15);
+      marker.openPopup();
     }
 
     function setCreatorDefaultDate() {
