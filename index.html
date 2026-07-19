@@ -1630,6 +1630,17 @@
       const message = document.getElementById("trackingMessage");
       message.innerHTML = "";
 
+      const currentTracking = jobTracking[selectedJob.folderId] || {};
+
+      // Start Work is a one-time transition. Prevent repeat presses even
+      // after a refresh or after the original request has finished.
+      if (jobAction === "startWork" && currentTracking.workStarted) {
+        message.innerHTML =
+          `<div class="success">Work was already started at ${safeText(currentTracking.workStarted)}.</div>`;
+        updateJobActionAvailability();
+        return;
+      }
+
       jobActionInProgress = true;
       setJobActionButtonsDisabled(true, jobAction);
 
@@ -1753,6 +1764,9 @@
                 Open Completion PDF
               </a>
             </div>`;
+        } else if (jobAction === "startWork" && data.alreadyStarted) {
+          message.innerHTML =
+            `<div class="success">Work was already started at ${safeText(data.timestamp)}. No duplicate entry was created.</div>`;
         } else {
           message.innerHTML =
             `<div class="success">${safeText(data.status)} recorded at ${safeText(data.timestamp)}.</div>`;
@@ -3315,14 +3329,29 @@
       const button = document.getElementById("jobAction_startWork");
       if (!button) return;
 
+      const tracking = selectedJob
+        ? (jobTracking[selectedJob.folderId] || {})
+        : {};
+      const alreadyStarted = Boolean(tracking.workStarted);
+      const documentsBlocked = !currentDocumentGate.complete;
       const blocked =
-        !currentDocumentGate.complete ||
+        alreadyStarted ||
+        documentsBlocked ||
         jobActionInProgress;
 
       button.disabled = blocked;
-      button.title = blocked
-        ? "Upload and acknowledge all mandatory job documents first"
-        : "";
+
+      if (alreadyStarted) {
+        button.textContent = "Work Started";
+        button.title = tracking.workStarted
+          ? `Work started at ${tracking.workStarted}`
+          : "Work has already started";
+      } else {
+        button.textContent = "Start Work";
+        button.title = documentsBlocked
+          ? "Upload and acknowledge all mandatory job documents first"
+          : "";
+      }
     }
 
     function getGateDocumentForHubDocument(documentItem) {
