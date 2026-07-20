@@ -492,7 +492,7 @@
     .drawing-dialog{position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:18px}.drawing-dialog-card{width:min(460px,100%);background:#fff;color:var(--mpc-charcoal);padding:20px;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.45)}
     .drawing-route-summary{position:absolute;right:12px;top:12px;z-index:5;width:min(280px,calc(100% - 24px));max-height:45%;overflow:auto;background:rgba(255,255,255,.95);color:var(--mpc-charcoal);border-radius:14px;padding:10px;box-shadow:0 10px 24px rgba(0,0,0,.2)}
     .drawing-route-item{padding:8px;border-bottom:1px solid #e5e7eb;font-size:11px}.drawing-route-item:last-child{border-bottom:0}.drawing-route-item strong{display:block;font-size:12px}
-    @media(max-width:700px){.drawing-toolbar{grid-template-columns:repeat(7,82px)}.drawing-route-summary{display:none}.drawing-topbar{flex-wrap:wrap}.drawing-title-wrap{flex-basis:55%}}
+    @media(max-width:700px){.drawing-toolbar{grid-template-columns:repeat(8,82px)}.drawing-route-summary{display:none}.drawing-topbar{flex-wrap:wrap}.drawing-title-wrap{flex-basis:55%}}
 
     footer { text-align: center; padding: 18px; color: rgba(255,255,255,0.78); font-size: 12px; font-weight: 700; }
 
@@ -917,6 +917,7 @@
       <div class="drawing-toolbar">
         <button id="drawingToolPan" class="drawing-tool active" onclick="setDrawingTool('pan')">✋ Move</button>
         <button id="drawingToolRoute" class="drawing-tool" onclick="setDrawingTool('route')">➕ Route</button>
+        <button id="drawingFinishRoute" class="drawing-tool hidden" onclick="finishDrawingRoute()">✅ Finish</button>
         <button id="drawingToolNote" class="drawing-tool" onclick="setDrawingTool('note')">📝 Note</button>
         <button id="drawingToolArrow" class="drawing-tool" onclick="setDrawingTool('arrow')">➡ Arrow</button>
         <button id="drawingToolHighlight" class="drawing-tool" onclick="setDrawingTool('highlight')">🟨 Highlight</button>
@@ -925,7 +926,7 @@
       </div>
     </section>
 
-    <div id="drawingRouteDialog" class="drawing-dialog hidden"><div class="drawing-dialog-card"><h3>Save Cable Route</h3><label for="drawingCableType">Cable Type</label><select id="drawingCableType"><option>LV</option><option>HV</option><option>Fibre</option><option>Street Lighting</option><option>Other</option></select><label for="drawingRouteLength">Measured Length (metres)</label><input id="drawingRouteLength" type="number" min="0" step="0.01" placeholder="e.g. 43.8"><label for="drawingRouteDescription">Description / Location</label><textarea id="drawingRouteDescription" placeholder="Example: Installed between joint 3 and cabinet 4"></textarea><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="button secondary" onclick="cancelRouteDialog()">Cancel</button><button class="button" onclick="confirmRouteDialog()">Save Route</button></div></div></div>
+    <div id="drawingRouteDialog" class="drawing-dialog hidden"><div class="drawing-dialog-card"><h3>Save Cable Route</h3><label for="drawingCableType">Cable Type</label><select id="drawingCableType"><option>LV</option><option>HV</option><option>Fibre</option><option>Street Lighting</option><option>Other</option></select><label for="drawingRouteLength">Measured Length (metres)</label><input id="drawingRouteLength" type="number" min="0" step="0.01" placeholder="e.g. 43.8"><label for="drawingRouteLabel">Visible Text on Drawing</label><input id="drawingRouteLabel" type="text" maxlength="80" placeholder="Example: LV 43.8m to Cabinet 4"><div class="small-note">This text will appear next to the end of the cable route. Leave blank to show the cable type and measured length automatically.</div><label for="drawingRouteDescription">Description / Location</label><textarea id="drawingRouteDescription" placeholder="Example: Installed between joint 3 and cabinet 4"></textarea><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="button secondary" onclick="cancelRouteDialog()">Cancel</button><button class="button" onclick="confirmRouteDialog()">Save Route</button></div></div></div>
     <div id="drawingNoteDialog" class="drawing-dialog hidden"><div class="drawing-dialog-card"><h3>Add Drawing Note</h3><label for="drawingNoteText">Note</label><textarea id="drawingNoteText" placeholder="Enter the site note..."></textarea><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="button secondary" onclick="cancelNoteDialog()">Cancel</button><button class="button" onclick="confirmNoteDialog()">Add Note</button></div></div></div>
 
 
@@ -3737,7 +3738,9 @@
       });
       const canvas = document.getElementById("drawingMarkupCanvas");
       if (canvas) canvas.style.cursor = tool === "pan" ? "grab" : "crosshair";
-      setDrawingStatus(tool === "route" ? "Tap along the route. Double-tap the final point." : `Tool: ${tool}`);
+      const finishButton = document.getElementById("drawingFinishRoute");
+      if (finishButton) finishButton.classList.toggle("hidden", tool !== "route");
+      setDrawingStatus(tool === "route" ? "Tap each point along the route, then press Finish." : `Tool: ${tool}`);
     }
 
     function getDrawingPoint(event) {
@@ -3752,7 +3755,7 @@
       canvas.onpointerdown = drawingPointerDown;
       canvas.onpointermove = drawingPointerMove;
       canvas.onpointerup = drawingPointerUp;
-      canvas.ondblclick = drawingDoubleClick;
+      canvas.ondblclick = null;
     }
 
     function drawingPointerDown(event) {
@@ -3762,7 +3765,14 @@
         drawingPointerStart = { x:event.clientX, y:event.clientY, left:wrap.scrollLeft, top:wrap.scrollTop, pan:true };
         event.currentTarget.setPointerCapture(event.pointerId); return;
       }
-      if (drawingTool === "route") { drawingCurrentPoints.push(point); redrawDrawingMarkup(); return; }
+      if (drawingTool === "route") {
+        drawingCurrentPoints.push(point);
+        redrawDrawingMarkup();
+        setDrawingStatus(drawingCurrentPoints.length < 2
+          ? "Add at least one more point, then press Finish."
+          : `${drawingCurrentPoints.length} route points added. Press Finish when complete.`);
+        return;
+      }
       if (drawingTool === "note") { drawingPendingPoint = point; document.getElementById("drawingNoteText").value=""; document.getElementById("drawingNoteDialog").classList.remove("hidden"); return; }
       if (drawingTool === "arrow" || drawingTool === "highlight") { drawingPointerStart = { ...point, pan:false }; event.currentTarget.setPointerCapture(event.pointerId); }
     }
@@ -3786,10 +3796,15 @@
       drawingPointerStart = null; redrawDrawingMarkup();
     }
 
-    function drawingDoubleClick(event) {
-      if (drawingTool !== "route" || drawingCurrentPoints.length < 2) return;
-      event.preventDefault();
-      document.getElementById("drawingRouteLength").value=""; document.getElementById("drawingRouteDescription").value="";
+    function finishDrawingRoute() {
+      if (drawingTool !== "route") return;
+      if (drawingCurrentPoints.length < 2) {
+        alert("Add at least two points to create a cable route.");
+        return;
+      }
+      document.getElementById("drawingRouteLength").value="";
+      document.getElementById("drawingRouteLabel").value="";
+      document.getElementById("drawingRouteDescription").value="";
       document.getElementById("drawingRouteDialog").classList.remove("hidden");
     }
 
@@ -3797,7 +3812,9 @@
     function confirmRouteDialog() {
       const length = Number(document.getElementById("drawingRouteLength").value);
       if (!length || length <= 0) { alert("Enter the measured route length in metres."); return; }
-      drawingMarkup.routes.push({ page:drawingCurrentPage, cableType:document.getElementById("drawingCableType").value, lengthMetres:length, description:document.getElementById("drawingRouteDescription").value.trim(), points:[...drawingCurrentPoints], enteredBy:currentOperative.name, enteredAt:new Date().toISOString() });
+      const cableType = document.getElementById("drawingCableType").value;
+      const visibleLabel = document.getElementById("drawingRouteLabel").value.trim() || `${cableType} • ${length.toFixed(2)}m`;
+      drawingMarkup.routes.push({ page:drawingCurrentPage, cableType:cableType, lengthMetres:length, visibleLabel:visibleLabel, description:document.getElementById("drawingRouteDescription").value.trim(), points:[...drawingCurrentPoints], enteredBy:currentOperative.name, enteredAt:new Date().toISOString() });
       drawingActionHistory.push({type:"routes"}); drawingCurrentPoints=[]; document.getElementById("drawingRouteDialog").classList.add("hidden"); redrawDrawingMarkup(); setDrawingStatus(`Route saved: ${length.toFixed(2)} m`);
     }
     function cancelNoteDialog() { document.getElementById("drawingNoteDialog").classList.add("hidden"); drawingPendingPoint=null; }
@@ -3810,16 +3827,16 @@
     function redrawDrawingMarkup() {
       const canvas=document.getElementById("drawingMarkupCanvas"); if(!canvas)return; const ctx=canvas.getContext("2d"); const w=canvas.width,h=canvas.height; ctx.clearRect(0,0,w,h); ctx.lineCap="round";ctx.lineJoin="round";
       drawingPageItems(drawingMarkup.highlights).forEach(item=>{ctx.fillStyle="rgba(250,204,21,.3)";ctx.strokeStyle="rgba(202,138,4,.75)";ctx.lineWidth=2;const x=Math.min(item.start.x,item.end.x)*w,y=Math.min(item.start.y,item.end.y)*h,rw=Math.abs(item.end.x-item.start.x)*w,rh=Math.abs(item.end.y-item.start.y)*h;ctx.fillRect(x,y,rw,rh);ctx.strokeRect(x,y,rw,rh);});
-      drawingPageItems(drawingMarkup.routes).forEach(route=>drawRoute(ctx,route.points,w,h,drawingCableColour(route.cableType),`${route.cableType} • ${Number(route.lengthMetres).toFixed(2)}m`));
-      if(drawingCurrentPoints.length) drawRoute(ctx,drawingCurrentPoints,w,h,"#12b8d4","Tap final point twice");
+      drawingPageItems(drawingMarkup.routes).forEach(route=>drawRoute(ctx,route.points,w,h,drawingCableColour(route.cableType),route.visibleLabel || `${route.cableType} • ${Number(route.lengthMetres).toFixed(2)}m`));
+      if(drawingCurrentPoints.length) drawRoute(ctx,drawingCurrentPoints,w,h,"#12b8d4","Press Finish");
       drawingPageItems(drawingMarkup.arrows).forEach(item=>drawArrow(ctx,item.start,item.end,w,h));
       drawingPageItems(drawingMarkup.notes).forEach((item,i)=>drawNote(ctx,item.point,w,h,i+1));
       renderDrawingRouteSummary();
     }
-    function drawRoute(ctx,points,w,h,colour,label){if(!points||points.length<1)return;ctx.strokeStyle=colour;ctx.fillStyle=colour;ctx.lineWidth=5;ctx.beginPath();points.forEach((p,i)=>{const x=p.x*w,y=p.y*h;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();points.forEach(p=>{ctx.beginPath();ctx.arc(p.x*w,p.y*h,6,0,Math.PI*2);ctx.fill()});const p=points[points.length-1];ctx.font="bold 13px Arial";ctx.fillStyle="#fff";const tw=ctx.measureText(label).width;ctx.fillStyle="rgba(37,49,59,.92)";ctx.fillRect(p.x*w+9,p.y*h-20,tw+12,23);ctx.fillStyle="#fff";ctx.fillText(label,p.x*w+15,p.y*h-4)}
+    function drawRoute(ctx,points,w,h,colour,label){if(!points||points.length<1)return;ctx.strokeStyle=colour;ctx.fillStyle=colour;ctx.lineWidth=5;ctx.beginPath();points.forEach((p,i)=>{const x=p.x*w,y=p.y*h;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();points.forEach(p=>{ctx.beginPath();ctx.arc(p.x*w,p.y*h,6,0,Math.PI*2);ctx.fill()});const p=points[points.length-1];const text=String(label||"").trim();if(!text)return;ctx.font="bold 13px Arial";const maxWidth=Math.min(260,Math.max(120,w*.45));let shown=text;while(shown.length>4&&ctx.measureText(shown).width>maxWidth)shown=shown.slice(0,-1);if(shown!==text)shown=shown.slice(0,-1)+"…";const tw=ctx.measureText(shown).width;let x=p.x*w+9,y=p.y*h-20;if(x+tw+18>w)x=Math.max(6,p.x*w-tw-21);if(y<6)y=p.y*h+8;ctx.fillStyle="rgba(37,49,59,.94)";ctx.fillRect(x,y,tw+12,23);ctx.fillStyle="#fff";ctx.fillText(shown,x+6,y+16)}
     function drawArrow(ctx,start,end,w,h){const sx=start.x*w,sy=start.y*h,ex=end.x*w,ey=end.y*h,ang=Math.atan2(ey-sy,ex-sx),head=14;ctx.strokeStyle="#dc2626";ctx.fillStyle="#dc2626";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex-head*Math.cos(ang-Math.PI/6),ey-head*Math.sin(ang-Math.PI/6));ctx.lineTo(ex-head*Math.cos(ang+Math.PI/6),ey-head*Math.sin(ang+Math.PI/6));ctx.closePath();ctx.fill()}
     function drawNote(ctx,point,w,h,index){const x=point.x*w,y=point.y*h;ctx.fillStyle="#f59e0b";ctx.beginPath();ctx.arc(x,y,14,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff";ctx.font="bold 12px Arial";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(String(index),x,y);ctx.textAlign="start";ctx.textBaseline="alphabetic"}
-    function renderDrawingRouteSummary(){const box=document.getElementById("drawingRouteSummary");const routes=drawingPageItems(drawingMarkup.routes);const notes=drawingPageItems(drawingMarkup.notes);if(!routes.length&&!notes.length){box.classList.add("hidden");return;}box.classList.remove("hidden");box.innerHTML=`<strong>Page ${drawingCurrentPage} Markups</strong>`+routes.map(r=>`<div class="drawing-route-item"><strong style="color:${drawingCableColour(r.cableType)}">${safeText(r.cableType)} • ${Number(r.lengthMetres).toFixed(2)}m</strong>${safeText(r.description||"")}</div>`).join("")+notes.map((n,i)=>`<div class="drawing-route-item"><strong>Note ${i+1}</strong>${safeText(n.text)}</div>`).join("")}
+    function renderDrawingRouteSummary(){const box=document.getElementById("drawingRouteSummary");const routes=drawingPageItems(drawingMarkup.routes);const notes=drawingPageItems(drawingMarkup.notes);if(!routes.length&&!notes.length){box.classList.add("hidden");return;}box.classList.remove("hidden");box.innerHTML=`<strong>Page ${drawingCurrentPage} Markups</strong>`+routes.map(r=>`<div class="drawing-route-item"><strong style="color:${drawingCableColour(r.cableType)}">${safeText(r.visibleLabel || `${r.cableType} • ${Number(r.lengthMetres).toFixed(2)}m`)}</strong>${safeText(r.description||"")}</div>`).join("")+notes.map((n,i)=>`<div class="drawing-route-item"><strong>Note ${i+1}</strong>${safeText(n.text)}</div>`).join("")}
     function undoDrawingMarkup(){if(drawingCurrentPoints.length){drawingCurrentPoints.pop();redrawDrawingMarkup();return;}const action=drawingActionHistory.pop();if(!action){setDrawingStatus("Nothing to undo");return;}drawingMarkup[action.type].pop();redrawDrawingMarkup();}
     async function saveDrawingMarkup(){if(!drawingSourceDocument||!selectedJob)return;setDrawingStatus("Saving markup...");try{const response=await apiPost({action:"saveDrawingMarkup",folderId:selectedJob.folderId,fileId:drawingSourceDocument.id,operative:currentOperative.name,markup:drawingMarkup});setDrawingStatus(`Saved ${response.savedAt||""}`);}catch(error){setDrawingStatus(error.message||"Markup could not be saved");}}
 
