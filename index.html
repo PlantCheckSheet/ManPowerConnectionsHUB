@@ -486,6 +486,7 @@
     .drawing-stage-wrap{position:relative;flex:1;overflow:auto;background:#111827;touch-action:none}
     .drawing-stage{position:relative;margin:18px auto;background:#fff;box-shadow:0 18px 45px rgba(0,0,0,.4);transform-origin:top left}
     .drawing-stage canvas{position:absolute;inset:0;width:100%;height:100%}.drawing-pdf-canvas{z-index:1}.drawing-markup-canvas{z-index:2;touch-action:none}
+    .drawing-save-result{position:fixed;left:12px;right:12px;bottom:86px;z-index:10005;background:#fff;border:1px solid #d7e0e5;border-radius:12px;padding:12px;box-shadow:0 8px 30px rgba(0,0,0,.2);font-size:14px}.drawing-save-result a{display:inline-block;margin-top:8px;font-weight:800;color:#087f8c}.drawing-tool:disabled{opacity:.55;cursor:not-allowed}
     .drawing-toolbar{display:grid;grid-template-columns:repeat(7,minmax(62px,1fr));gap:7px;padding:8px;background:#25313b;border-top:1px solid rgba(255,255,255,.12);overflow-x:auto}
     .drawing-tool{border:0;border-radius:11px;padding:9px 7px;background:rgba(255,255,255,.09);color:#fff;font-size:11px;font-weight:900;cursor:pointer;white-space:nowrap}.drawing-tool.active{background:var(--mpc-cyan)}.drawing-tool.save{background:#16a34a}.drawing-tool.danger{background:#7f1d1d}
     .drawing-status{position:absolute;left:12px;top:12px;z-index:5;padding:8px 11px;border-radius:999px;background:rgba(37,49,59,.9);color:#fff;font-size:11px;font-weight:900;pointer-events:none}
@@ -923,8 +924,10 @@
         <button id="drawingToolArrow" class="drawing-tool" onclick="setDrawingTool('arrow')">➡ Arrow</button>
         <button id="drawingToolHighlight" class="drawing-tool" onclick="setDrawingTool('highlight')">🟨 Highlight</button>
         <button class="drawing-tool danger" onclick="undoDrawingMarkup()">↶ Undo</button>
-        <button class="drawing-tool save" onclick="saveDrawingMarkup()">💾 Save</button>
+        <button id="drawingSaveProgressButton" class="drawing-tool save" onclick="saveDrawingProgress()">💾 Save Progress</button>
+        <button id="drawingCreatePdfButton" class="drawing-tool save" onclick="createDrawingAsBuiltPdf()">📄 Create As-Built PDF</button>
       </div>
+      <div id="drawingSaveResult" class="drawing-save-result hidden"></div>
     </section>
 
     <div id="drawingRouteDialog" class="drawing-dialog hidden"><div class="drawing-dialog-card"><h3>Save Cable Route</h3><label for="drawingCableType">Cable Type</label><select id="drawingCableType"><option>LV</option><option>HV</option><option>Fibre</option><option>Street Lighting</option><option>Other</option></select><label for="drawingRouteLength">Measured Length (metres)</label><input id="drawingRouteLength" type="number" min="0" step="0.01" placeholder="e.g. 43.8"><label for="drawingRouteLabel">Visible Text on Drawing</label><input id="drawingRouteLabel" type="text" maxlength="80" placeholder="Example: LV 43.8m to Cabinet 4"><div class="small-note">This text will appear next to the end of the cable route. Leave blank to show the cable type and measured length automatically.</div><label for="drawingRouteDescription">Description / Location</label><textarea id="drawingRouteDescription" placeholder="Example: Installed between joint 3 and cabinet 4"></textarea><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="button secondary" onclick="cancelRouteDialog()">Cancel</button><button class="button" onclick="confirmRouteDialog()">Save Route</button></div></div></div>
@@ -1072,6 +1075,8 @@
     let drawingPointerStart = null;
     let drawingActionHistory = [];
     let drawingRenderToken = 0;
+    let drawingSaveInProgress = false;
+    let drawingPdfInProgress = false;
     let vanCheckComplete = false;
     let jobTracking = {};
     let currentJobTracking = null;
@@ -3904,44 +3909,128 @@
     }
 
     async function buildAnnotatedDrawingPdfBase64() {
-      if (!window.jspdf || !window.jspdf.jsPDF) throw new Error("The PDF export library has not loaded.");
+      if (!window.jspdf || !window.jspdf.jsPDF) throw new Error("The PDF export library has not loaded. Refresh the page and try again.");
+      if (!drawingPdfDocument) throw new Error("The drawing has not finished loading.");
       const { jsPDF } = window.jspdf;
       let pdf = null;
       for (let pageNumber=1; pageNumber<=drawingPdfDocument.numPages; pageNumber++) {
-        setDrawingStatus(`Creating annotated PDF — page ${pageNumber} of ${drawingPdfDocument.numPages}...`);
+        setDrawingStatus(`Preparing page ${pageNumber} of ${drawingPdfDocument.numPages}...`);
         const page=await drawingPdfDocument.getPage(pageNumber);
-        const viewport=page.getViewport({scale:1.5});
+        // A moderate export scale keeps large engineering drawings inside Apps Script request limits.
+        const viewport=page.getViewport({scale:1.05});
         const canvas=document.createElement("canvas");
         canvas.width=Math.ceil(viewport.width); canvas.height=Math.ceil(viewport.height);
-        const ctx=canvas.getContext("2d");
-        await page.render({canvasContext:ctx,viewport:viewport}).promise;
+        const ctx=canvas.getContext("2d", {alpha:false});
+        await page.render({canvasContext:ctx,viewport:viewport,background:"#ffffff"}).promise;
         drawMarkupForExport(ctx,pageNumber,canvas.width,canvas.height);
         const orientation=canvas.width>=canvas.height ? "landscape" : "portrait";
-        if (!pdf) pdf=new jsPDF({orientation,unit:"px",format:[canvas.width,canvas.height],hotfixes:["px_scaling"]});
+        if (!pdf) pdf=new jsPDF({orientation,unit:"px",format:[canvas.width,canvas.height],hotfixes:["px_scaling"],compress:true});
         else pdf.addPage([canvas.width,canvas.height],orientation);
-        pdf.addImage(canvas.toDataURL("image/jpeg",0.9),"JPEG",0,0,canvas.width,canvas.height,undefined,"FAST");
+        pdf.addImage(canvas.toDataURL("image/jpeg",0.72),"JPEG",0,0,canvas.width,canvas.height,undefined,"FAST");
+        canvas.width=1; canvas.height=1;
+        await new Promise(resolve=>setTimeout(resolve,0));
       }
-      return pdf.output("datauristring").split(",")[1];
+      const base64=pdf.output("datauristring").split(",")[1];
+      const approximateBytes=Math.ceil(base64.length*0.75);
+      if (approximateBytes > 18*1024*1024) {
+        throw new Error("This completed drawing is too large to upload. Try a smaller PDF drawing or split it into fewer pages.");
+      }
+      return base64;
     }
 
-    async function saveDrawingMarkup(){
-      if(!drawingSourceDocument||!selectedJob)return;
-      setDrawingStatus("Preparing annotated drawing...");
+    function setDrawingSaveButtons(disabled) {
+      const saveButton=document.getElementById("drawingSaveProgressButton");
+      const pdfButton=document.getElementById("drawingCreatePdfButton");
+      if(saveButton) saveButton.disabled=disabled;
+      if(pdfButton) pdfButton.disabled=disabled;
+    }
+
+    function showDrawingSaveResult(message, url) {
+      const box=document.getElementById("drawingSaveResult");
+      if(!box) return;
+      box.classList.remove("hidden");
+      box.innerHTML=`<strong>${safeText(message)}</strong>${url ? `<br><a href="${safeText(url)}" target="_blank" rel="noopener">Open saved As-Built PDF</a>` : ""}`;
+    }
+
+    async function saveDrawingProgress(options={}){
+      if(!drawingSourceDocument||!selectedJob) throw new Error("No drawing or job is selected.");
+      if(drawingSaveInProgress) return null;
+      drawingSaveInProgress=true;
+      setDrawingSaveButtons(true);
+      if(!options.silent) {
+        setDrawingStatus("Saving editable drawing progress...");
+        showDrawingSaveResult("Saving progress…");
+      }
       try{
-        const annotatedPdfBase64=await buildAnnotatedDrawingPdfBase64();
-        setDrawingStatus("Saving annotated PDF to Google Drive...");
         const response=await apiPost({
-          action:"saveDrawingMarkup",
+          action:"saveDrawingProgress",
+          folderId:selectedJob.folderId,
+          fileId:drawingSourceDocument.id,
+          operative:currentOperative.name,
+          markup:drawingMarkup
+        });
+        if(!options.silent){
+          setDrawingStatus(`Progress saved ${response.savedAt||""}`);
+          showDrawingSaveResult("Drawing progress saved successfully.");
+        }
+        return response;
+      }catch(error){
+        if(!options.silent){
+          setDrawingStatus(error.message||"Drawing progress could not be saved");
+          showDrawingSaveResult(error.message||"Drawing progress could not be saved");
+        }
+        throw error;
+      }finally{
+        drawingSaveInProgress=false;
+        if(!drawingPdfInProgress) setDrawingSaveButtons(false);
+      }
+    }
+
+    async function createDrawingAsBuiltPdf(){
+      if(!drawingSourceDocument||!selectedJob||drawingPdfInProgress)return;
+      drawingPdfInProgress=true;
+      setDrawingSaveButtons(true);
+      const button=document.getElementById("drawingCreatePdfButton");
+      const originalText=button ? button.innerHTML : "";
+      if(button) button.innerHTML="⏳ Creating PDF…";
+      showDrawingSaveResult("Saving progress before creating the PDF…");
+      try{
+        // Save the editable geometry first, independently of PDF generation.
+        await apiPost({
+          action:"saveDrawingProgress",
+          folderId:selectedJob.folderId,
+          fileId:drawingSourceDocument.id,
+          operative:currentOperative.name,
+          markup:drawingMarkup
+        });
+        setDrawingStatus("Creating As-Built PDF...");
+        showDrawingSaveResult("Creating the completed drawing. Please keep this screen open…");
+        const annotatedPdfBase64=await buildAnnotatedDrawingPdfBase64();
+        setDrawingStatus("Uploading As-Built PDF to Google Drive...");
+        showDrawingSaveResult("Uploading the completed PDF to Google Drive…");
+        const response=await apiPost({
+          action:"saveDrawingPdf",
           folderId:selectedJob.folderId,
           fileId:drawingSourceDocument.id,
           operative:currentOperative.name,
           markup:drawingMarkup,
-          annotatedPdfBase64:annotatedPdfBase64
+          annotatedPdfBase64
         });
-        setDrawingStatus(`Annotated PDF saved ${response.savedAt||""}`);
-        if(response.annotatedPdfUrl) window.open(response.annotatedPdfUrl,"_blank");
-      }catch(error){setDrawingStatus(error.message||"Drawing could not be saved");}
+        setDrawingStatus(`As-Built PDF saved ${response.savedAt||""}`);
+        showDrawingSaveResult("As-Built PDF saved successfully.", response.annotatedPdfUrl || "");
+      }catch(error){
+        const message=error.message||"The As-Built PDF could not be created.";
+        setDrawingStatus(message);
+        showDrawingSaveResult(message);
+      }finally{
+        drawingPdfInProgress=false;
+        setDrawingSaveButtons(false);
+        if(button) button.innerHTML=originalText;
+      }
     }
+
+    // Backwards-compatible name for any older button or cached page.
+    async function saveDrawingMarkup(){ return createDrawingAsBuiltPdf(); }
 
     async function submitVanCheck() {
       const message = document.getElementById("vanCheckMessage");
