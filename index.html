@@ -14,6 +14,7 @@
   <meta name="theme-color" content="#12b8d4">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
   <script>
     // PDF.js uses a separate background worker to open and render PDFs.
     // The worker version must match the main PDF.js version above.
@@ -3656,6 +3657,42 @@
     }
 
 
+    let drawingPinchStartDistance = 0;
+    let drawingPinchStartZoom = 1;
+    let drawingPinchRenderTimer = null;
+
+    function setupDrawingPinchZoom() {
+      const wrap = document.getElementById("drawingStageWrap");
+      if (!wrap || wrap.dataset.pinchReady === "true") return;
+      wrap.dataset.pinchReady = "true";
+
+      wrap.addEventListener("touchstart", event => {
+        if (event.touches.length !== 2) return;
+        const dx = event.touches[0].clientX - event.touches[1].clientX;
+        const dy = event.touches[0].clientY - event.touches[1].clientY;
+        drawingPinchStartDistance = Math.hypot(dx, dy);
+        drawingPinchStartZoom = drawingZoom;
+        event.preventDefault();
+      }, { passive:false });
+
+      wrap.addEventListener("touchmove", event => {
+        if (event.touches.length !== 2 || !drawingPinchStartDistance) return;
+        const dx = event.touches[0].clientX - event.touches[1].clientX;
+        const dy = event.touches[0].clientY - event.touches[1].clientY;
+        const distance = Math.hypot(dx, dy);
+        const nextZoom = Math.max(.4, Math.min(3.5, drawingPinchStartZoom * (distance / drawingPinchStartDistance)));
+        drawingZoom = nextZoom;
+        setDrawingStatus(`Zoom ${Math.round(drawingZoom * 100)}%`);
+        clearTimeout(drawingPinchRenderTimer);
+        drawingPinchRenderTimer = setTimeout(() => renderDrawingPage(), 80);
+        event.preventDefault();
+      }, { passive:false });
+
+      wrap.addEventListener("touchend", event => {
+        if (event.touches.length < 2) drawingPinchStartDistance = 0;
+      }, { passive:true });
+    }
+
     function drawingSafeArray(value) { return Array.isArray(value) ? value : []; }
     function drawingPageItems(items) { return drawingSafeArray(items).filter(item => Number(item.page || 1) === drawingCurrentPage); }
     function isPdfDocument(doc) { return String((doc && doc.type) || "").toLowerCase().includes("pdf") || String((doc && doc.name) || "").toLowerCase().endsWith(".pdf"); }
@@ -3677,6 +3714,7 @@
       document.getElementById("drawingViewerModal").classList.remove("hidden");
       setDrawingStatus("Loading PDF and saved markups...");
       setDrawingTool("pan");
+      setupDrawingPinchZoom();
 
       try {
         const [fileData, markupData] = await Promise.all([
@@ -3712,7 +3750,7 @@
     }
 
     async function changeDrawingZoom(delta) {
-      drawingZoom = Math.max(.5, Math.min(2.5, drawingZoom + delta));
+      drawingZoom = Math.max(.4, Math.min(3.5, drawingZoom + delta));
       await renderDrawingPage();
     }
 
@@ -3840,7 +3878,70 @@
     function drawNote(ctx,point,w,h,index){const x=point.x*w,y=point.y*h;ctx.fillStyle="#f59e0b";ctx.beginPath();ctx.arc(x,y,14,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff";ctx.font="bold 12px Arial";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(String(index),x,y);ctx.textAlign="start";ctx.textBaseline="alphabetic"}
     function renderDrawingRouteSummary(){const box=document.getElementById("drawingRouteSummary");const routes=drawingPageItems(drawingMarkup.routes);const notes=drawingPageItems(drawingMarkup.notes);if(!routes.length&&!notes.length){box.classList.add("hidden");return;}box.classList.remove("hidden");box.innerHTML=`<strong>Page ${drawingCurrentPage} Markups</strong>`+routes.map(r=>`<div class="drawing-route-item"><strong style="color:${drawingCableColour(r.cableType)}">${safeText(r.visibleLabel || `${r.cableType} • ${Number(r.lengthMetres).toFixed(2)}m`)}</strong>${safeText(r.description||"")}</div>`).join("")+notes.map((n,i)=>`<div class="drawing-route-item"><strong>Note ${i+1}</strong>${safeText(n.text)}</div>`).join("")}
     function undoDrawingMarkup(){if(drawingCurrentPoints.length){drawingCurrentPoints.pop();redrawDrawingMarkup();return;}const action=drawingActionHistory.pop();if(!action){setDrawingStatus("Nothing to undo");return;}drawingMarkup[action.type].pop();redrawDrawingMarkup();}
-    async function saveDrawingMarkup(){if(!drawingSourceDocument||!selectedJob)return;setDrawingStatus("Saving markup...");try{const response=await apiPost({action:"saveDrawingMarkup",folderId:selectedJob.folderId,fileId:drawingSourceDocument.id,operative:currentOperative.name,markup:drawingMarkup});setDrawingStatus(`Saved ${response.savedAt||""}`);}catch(error){setDrawingStatus(error.message||"Markup could not be saved");}}
+    function drawMarkupForExport(ctx, pageNumber, width, height) {
+      drawingSafeArray(drawingMarkup.highlights).filter(item => Number(item.page || 1) === pageNumber).forEach(item => {
+        ctx.fillStyle="rgba(250,204,21,.3)"; ctx.strokeStyle="rgba(202,138,4,.75)"; ctx.lineWidth=2;
+        const x=Math.min(item.start.x,item.end.x)*width, y=Math.min(item.start.y,item.end.y)*height;
+        const rw=Math.abs(item.end.x-item.start.x)*width, rh=Math.abs(item.end.y-item.start.y)*height;
+        ctx.fillRect(x,y,rw,rh); ctx.strokeRect(x,y,rw,rh);
+      });
+      drawingSafeArray(drawingMarkup.routes).filter(item => Number(item.page || 1) === pageNumber).forEach(route => {
+        drawRoute(ctx,route.points,width,height,drawingCableColour(route.cableType),route.visibleLabel || `${route.cableType} • ${Number(route.lengthMetres).toFixed(2)}m`);
+      });
+      drawingSafeArray(drawingMarkup.arrows).filter(item => Number(item.page || 1) === pageNumber).forEach(item => drawArrow(ctx,item.start,item.end,width,height));
+      drawingSafeArray(drawingMarkup.notes).filter(item => Number(item.page || 1) === pageNumber).forEach((item,index) => {
+        drawNote(ctx,item.point,width,height,index+1);
+        const x=item.point.x*width+20, y=item.point.y*height-8;
+        ctx.font="bold 13px Arial";
+        const text=String(item.text||"").trim();
+        if (text) {
+          const shown=text.length>70 ? text.slice(0,67)+"…" : text;
+          const tw=Math.min(ctx.measureText(shown).width, width*.55);
+          ctx.fillStyle="rgba(37,49,59,.94)"; ctx.fillRect(x,y,tw+12,23);
+          ctx.fillStyle="#fff"; ctx.textAlign="start"; ctx.textBaseline="alphabetic"; ctx.fillText(shown,x+6,y+16,tw);
+        }
+      });
+    }
+
+    async function buildAnnotatedDrawingPdfBase64() {
+      if (!window.jspdf || !window.jspdf.jsPDF) throw new Error("The PDF export library has not loaded.");
+      const { jsPDF } = window.jspdf;
+      let pdf = null;
+      for (let pageNumber=1; pageNumber<=drawingPdfDocument.numPages; pageNumber++) {
+        setDrawingStatus(`Creating annotated PDF — page ${pageNumber} of ${drawingPdfDocument.numPages}...`);
+        const page=await drawingPdfDocument.getPage(pageNumber);
+        const viewport=page.getViewport({scale:1.5});
+        const canvas=document.createElement("canvas");
+        canvas.width=Math.ceil(viewport.width); canvas.height=Math.ceil(viewport.height);
+        const ctx=canvas.getContext("2d");
+        await page.render({canvasContext:ctx,viewport:viewport}).promise;
+        drawMarkupForExport(ctx,pageNumber,canvas.width,canvas.height);
+        const orientation=canvas.width>=canvas.height ? "landscape" : "portrait";
+        if (!pdf) pdf=new jsPDF({orientation,unit:"px",format:[canvas.width,canvas.height],hotfixes:["px_scaling"]});
+        else pdf.addPage([canvas.width,canvas.height],orientation);
+        pdf.addImage(canvas.toDataURL("image/jpeg",0.9),"JPEG",0,0,canvas.width,canvas.height,undefined,"FAST");
+      }
+      return pdf.output("datauristring").split(",")[1];
+    }
+
+    async function saveDrawingMarkup(){
+      if(!drawingSourceDocument||!selectedJob)return;
+      setDrawingStatus("Preparing annotated drawing...");
+      try{
+        const annotatedPdfBase64=await buildAnnotatedDrawingPdfBase64();
+        setDrawingStatus("Saving annotated PDF to Google Drive...");
+        const response=await apiPost({
+          action:"saveDrawingMarkup",
+          folderId:selectedJob.folderId,
+          fileId:drawingSourceDocument.id,
+          operative:currentOperative.name,
+          markup:drawingMarkup,
+          annotatedPdfBase64:annotatedPdfBase64
+        });
+        setDrawingStatus(`Annotated PDF saved ${response.savedAt||""}`);
+        if(response.annotatedPdfUrl) window.open(response.annotatedPdfUrl,"_blank");
+      }catch(error){setDrawingStatus(error.message||"Drawing could not be saved");}
+    }
 
     async function submitVanCheck() {
       const message = document.getElementById("vanCheckMessage");
