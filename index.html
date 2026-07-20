@@ -13,8 +13,13 @@
   <meta name="apple-mobile-web-app-title" content="ManPowerConnections">
   <meta name="theme-color" content="#12b8d4">
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    // PDF.js uses a separate background worker to open and render PDFs.
+    // The worker version must match the main PDF.js version above.
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  </script>
 
   <style>
     :root {
