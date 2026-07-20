@@ -13,6 +13,9 @@
   <meta name="apple-mobile-web-app-title" content="ManPowerConnections">
   <meta name="theme-color" content="#12b8d4">
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
   <style>
     :root {
       --mpc-cyan: #12b8d4;
@@ -468,6 +471,24 @@
     .photo-category-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0 14px}.photo-category-option input{display:none}.photo-category-option span{display:block;padding:12px 8px;border:2px solid #d9e2e8;border-radius:12px;text-align:center;background:#fff;color:var(--mpc-charcoal);font-size:12px;font-weight:900;cursor:pointer}.photo-category-option input:checked+span{border-color:var(--mpc-cyan);background:#e8f8fb;color:var(--mpc-cyan-dark)}
     @media(min-width:700px){.operative-profile{grid-template-columns:58px minmax(0,1fr) minmax(280px,.7fr)}.profile-stats{grid-column:auto}.photo-category-grid{grid-template-columns:repeat(5,1fr)}}
 
+
+    /* ===== Drawing Markup & Cable Routes v3.2 ===== */
+    .drawing-modal{position:fixed;inset:0;z-index:2000;background:#101820;display:flex;flex-direction:column;color:#fff}
+    .drawing-topbar{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#25313b;border-bottom:1px solid rgba(255,255,255,.12)}
+    .drawing-title-wrap{min-width:0;flex:1}.drawing-title{font-size:14px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.drawing-subtitle{font-size:11px;color:rgba(255,255,255,.65);margin-top:2px}
+    .drawing-icon-button{border:0;border-radius:11px;padding:10px 12px;background:rgba(255,255,255,.1);color:#fff;font-weight:900;cursor:pointer}
+    .drawing-stage-wrap{position:relative;flex:1;overflow:auto;background:#111827;touch-action:none}
+    .drawing-stage{position:relative;margin:18px auto;background:#fff;box-shadow:0 18px 45px rgba(0,0,0,.4);transform-origin:top left}
+    .drawing-stage canvas{position:absolute;inset:0;width:100%;height:100%}.drawing-pdf-canvas{z-index:1}.drawing-markup-canvas{z-index:2;touch-action:none}
+    .drawing-toolbar{display:grid;grid-template-columns:repeat(7,minmax(62px,1fr));gap:7px;padding:8px;background:#25313b;border-top:1px solid rgba(255,255,255,.12);overflow-x:auto}
+    .drawing-tool{border:0;border-radius:11px;padding:9px 7px;background:rgba(255,255,255,.09);color:#fff;font-size:11px;font-weight:900;cursor:pointer;white-space:nowrap}.drawing-tool.active{background:var(--mpc-cyan)}.drawing-tool.save{background:#16a34a}.drawing-tool.danger{background:#7f1d1d}
+    .drawing-status{position:absolute;left:12px;top:12px;z-index:5;padding:8px 11px;border-radius:999px;background:rgba(37,49,59,.9);color:#fff;font-size:11px;font-weight:900;pointer-events:none}
+    .drawing-page-controls{display:flex;align-items:center;gap:6px}.drawing-page-controls span{font-size:11px;font-weight:900;white-space:nowrap}
+    .drawing-dialog{position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:18px}.drawing-dialog-card{width:min(460px,100%);background:#fff;color:var(--mpc-charcoal);padding:20px;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.45)}
+    .drawing-route-summary{position:absolute;right:12px;top:12px;z-index:5;width:min(280px,calc(100% - 24px));max-height:45%;overflow:auto;background:rgba(255,255,255,.95);color:var(--mpc-charcoal);border-radius:14px;padding:10px;box-shadow:0 10px 24px rgba(0,0,0,.2)}
+    .drawing-route-item{padding:8px;border-bottom:1px solid #e5e7eb;font-size:11px}.drawing-route-item:last-child{border-bottom:0}.drawing-route-item strong{display:block;font-size:12px}
+    @media(max-width:700px){.drawing-toolbar{grid-template-columns:repeat(7,82px)}.drawing-route-summary{display:none}.drawing-topbar{flex-wrap:wrap}.drawing-title-wrap{flex-basis:55%}}
+
     footer { text-align: center; padding: 18px; color: rgba(255,255,255,0.78); font-size: 12px; font-weight: 700; }
 
     @media (min-width: 700px) {
@@ -876,6 +897,33 @@
     </section>
 
 
+    <section id="drawingViewerModal" class="drawing-modal hidden" aria-label="Drawing markup viewer">
+      <div class="drawing-topbar">
+        <button class="drawing-icon-button" onclick="closeDrawingViewer()">← Back</button>
+        <div class="drawing-title-wrap"><div id="drawingViewerTitle" class="drawing-title">Drawing</div><div id="drawingViewerSubtitle" class="drawing-subtitle">Digital as-built markup</div></div>
+        <div class="drawing-page-controls"><button class="drawing-icon-button" onclick="changeDrawingPage(-1)">‹</button><span id="drawingPageLabel">1 / 1</span><button class="drawing-icon-button" onclick="changeDrawingPage(1)">›</button></div>
+        <button class="drawing-icon-button" onclick="changeDrawingZoom(-0.2)">−</button><button class="drawing-icon-button" onclick="changeDrawingZoom(0.2)">+</button>
+      </div>
+      <div id="drawingStageWrap" class="drawing-stage-wrap">
+        <div id="drawingStatus" class="drawing-status">Loading drawing...</div>
+        <div id="drawingRouteSummary" class="drawing-route-summary hidden"></div>
+        <div id="drawingStage" class="drawing-stage"><canvas id="drawingPdfCanvas" class="drawing-pdf-canvas"></canvas><canvas id="drawingMarkupCanvas" class="drawing-markup-canvas"></canvas></div>
+      </div>
+      <div class="drawing-toolbar">
+        <button id="drawingToolPan" class="drawing-tool active" onclick="setDrawingTool('pan')">✋ Move</button>
+        <button id="drawingToolRoute" class="drawing-tool" onclick="setDrawingTool('route')">➕ Route</button>
+        <button id="drawingToolNote" class="drawing-tool" onclick="setDrawingTool('note')">📝 Note</button>
+        <button id="drawingToolArrow" class="drawing-tool" onclick="setDrawingTool('arrow')">➡ Arrow</button>
+        <button id="drawingToolHighlight" class="drawing-tool" onclick="setDrawingTool('highlight')">🟨 Highlight</button>
+        <button class="drawing-tool danger" onclick="undoDrawingMarkup()">↶ Undo</button>
+        <button class="drawing-tool save" onclick="saveDrawingMarkup()">💾 Save</button>
+      </div>
+    </section>
+
+    <div id="drawingRouteDialog" class="drawing-dialog hidden"><div class="drawing-dialog-card"><h3>Save Cable Route</h3><label for="drawingCableType">Cable Type</label><select id="drawingCableType"><option>LV</option><option>HV</option><option>Fibre</option><option>Street Lighting</option><option>Other</option></select><label for="drawingRouteLength">Measured Length (metres)</label><input id="drawingRouteLength" type="number" min="0" step="0.01" placeholder="e.g. 43.8"><label for="drawingRouteDescription">Description / Location</label><textarea id="drawingRouteDescription" placeholder="Example: Installed between joint 3 and cabinet 4"></textarea><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="button secondary" onclick="cancelRouteDialog()">Cancel</button><button class="button" onclick="confirmRouteDialog()">Save Route</button></div></div></div>
+    <div id="drawingNoteDialog" class="drawing-dialog hidden"><div class="drawing-dialog-card"><h3>Add Drawing Note</h3><label for="drawingNoteText">Note</label><textarea id="drawingNoteText" placeholder="Enter the site note..."></textarea><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="button secondary" onclick="cancelNoteDialog()">Cancel</button><button class="button" onclick="confirmNoteDialog()">Add Note</button></div></div></div>
+
+
     <section id="adminDashboardView" class="hidden">
       <div id="adminLoadingScreen" class="admin-loading-screen hidden">
         <div class="admin-loading-card"><div class="admin-loader"></div><h2>Loading company data</h2><p id="adminLoadingMessage">Checking today&apos;s jobs and operatives...</p></div>
@@ -1006,6 +1054,17 @@
 
     let currentOperative = null;
     let selectedJob = null;
+    let drawingPdfDocument = null;
+    let drawingSourceDocument = null;
+    let drawingCurrentPage = 1;
+    let drawingZoom = 1;
+    let drawingTool = "pan";
+    let drawingMarkup = { routes: [], notes: [], arrows: [], highlights: [] };
+    let drawingCurrentPoints = [];
+    let drawingPendingPoint = null;
+    let drawingPointerStart = null;
+    let drawingActionHistory = [];
+    let drawingRenderToken = 0;
     let vanCheckComplete = false;
     let jobTracking = {};
     let currentJobTracking = null;
@@ -3565,6 +3624,10 @@
             <div class="document-hub-actions">
               <a class="button secondary" href="${safeText(doc.url)}" target="_blank" rel="noopener">View Document</a>
 
+              ${String(doc.type || "").toLowerCase().includes("pdf") ? `
+                <button class="button" onclick="openDrawingViewer(${index})">📐 Open Drawing Tool</button>
+              ` : ""}
+
               ${required && !required.acknowledged ? `
                 <button class="button" onclick="acknowledgeRequiredDocument(${index})">Acknowledge</button>
               ` : ""}
@@ -3583,6 +3646,177 @@
         `;
       }).join("");
     }
+
+
+    function drawingSafeArray(value) { return Array.isArray(value) ? value : []; }
+    function drawingPageItems(items) { return drawingSafeArray(items).filter(item => Number(item.page || 1) === drawingCurrentPage); }
+    function isPdfDocument(doc) { return String((doc && doc.type) || "").toLowerCase().includes("pdf") || String((doc && doc.name) || "").toLowerCase().endsWith(".pdf"); }
+
+    async function openDrawingViewer(documentIndex) {
+      if (!selectedJob) return;
+      const doc = (selectedJob.documents || [])[documentIndex];
+      if (!doc || !isPdfDocument(doc)) return;
+      if (!window.pdfjsLib) { alert("The PDF viewer library has not loaded. Check the internet connection and try again."); return; }
+
+      drawingSourceDocument = doc;
+      drawingCurrentPage = 1;
+      drawingZoom = 1;
+      drawingTool = "pan";
+      drawingCurrentPoints = [];
+      drawingActionHistory = [];
+      document.getElementById("drawingViewerTitle").textContent = doc.originalName || doc.name || "Drawing";
+      document.getElementById("drawingViewerSubtitle").textContent = `${selectedJob.jobName} • ${currentOperative.name}`;
+      document.getElementById("drawingViewerModal").classList.remove("hidden");
+      setDrawingStatus("Loading PDF and saved markups...");
+      setDrawingTool("pan");
+
+      try {
+        const [fileData, markupData] = await Promise.all([
+          apiPost({ action: "getDrawingFile", fileId: doc.id }),
+          apiPost({ action: "getDrawingMarkup", folderId: selectedJob.folderId, fileId: doc.id })
+        ]);
+        const bytes = Uint8Array.from(atob(fileData.base64), c => c.charCodeAt(0));
+        drawingPdfDocument = await window.pdfjsLib.getDocument({ data: bytes }).promise;
+        drawingMarkup = markupData.markup || { routes: [], notes: [], arrows: [], highlights: [] };
+        drawingMarkup.routes = drawingSafeArray(drawingMarkup.routes);
+        drawingMarkup.notes = drawingSafeArray(drawingMarkup.notes);
+        drawingMarkup.arrows = drawingSafeArray(drawingMarkup.arrows);
+        drawingMarkup.highlights = drawingSafeArray(drawingMarkup.highlights);
+        await renderDrawingPage();
+        setDrawingStatus(markupData.markup ? "Saved markup loaded" : "Ready — choose a tool");
+      } catch (error) {
+        setDrawingStatus(error.message || "Drawing could not be opened");
+      }
+    }
+
+    function closeDrawingViewer() {
+      document.getElementById("drawingViewerModal").classList.add("hidden");
+      drawingPdfDocument = null; drawingSourceDocument = null; drawingCurrentPoints = [];
+    }
+
+    function setDrawingStatus(text) { document.getElementById("drawingStatus").textContent = text; }
+
+    async function changeDrawingPage(direction) {
+      if (!drawingPdfDocument) return;
+      const next = Math.max(1, Math.min(drawingPdfDocument.numPages, drawingCurrentPage + direction));
+      if (next === drawingCurrentPage) return;
+      drawingCurrentPage = next; drawingCurrentPoints = []; await renderDrawingPage();
+    }
+
+    async function changeDrawingZoom(delta) {
+      drawingZoom = Math.max(.5, Math.min(2.5, drawingZoom + delta));
+      await renderDrawingPage();
+    }
+
+    async function renderDrawingPage() {
+      if (!drawingPdfDocument) return;
+      const token = ++drawingRenderToken;
+      const page = await drawingPdfDocument.getPage(drawingCurrentPage);
+      const baseViewport = page.getViewport({ scale: 1.25 * drawingZoom });
+      const stage = document.getElementById("drawingStage");
+      const pdfCanvas = document.getElementById("drawingPdfCanvas");
+      const markupCanvas = document.getElementById("drawingMarkupCanvas");
+      stage.style.width = `${baseViewport.width}px`; stage.style.height = `${baseViewport.height}px`;
+      [pdfCanvas, markupCanvas].forEach(canvas => { canvas.width = Math.ceil(baseViewport.width); canvas.height = Math.ceil(baseViewport.height); });
+      await page.render({ canvasContext: pdfCanvas.getContext("2d"), viewport: baseViewport }).promise;
+      if (token !== drawingRenderToken) return;
+      document.getElementById("drawingPageLabel").textContent = `${drawingCurrentPage} / ${drawingPdfDocument.numPages}`;
+      bindDrawingCanvasEvents();
+      redrawDrawingMarkup();
+    }
+
+    function setDrawingTool(tool) {
+      drawingTool = tool; drawingCurrentPoints = [];
+      ["Pan","Route","Note","Arrow","Highlight"].forEach(name => {
+        const button = document.getElementById("drawingTool" + name); if (button) button.classList.toggle("active", tool === name.toLowerCase());
+      });
+      const canvas = document.getElementById("drawingMarkupCanvas");
+      if (canvas) canvas.style.cursor = tool === "pan" ? "grab" : "crosshair";
+      setDrawingStatus(tool === "route" ? "Tap along the route. Double-tap the final point." : `Tool: ${tool}`);
+    }
+
+    function getDrawingPoint(event) {
+      const canvas = document.getElementById("drawingMarkupCanvas");
+      const rect = canvas.getBoundingClientRect();
+      const touch = event.touches && event.touches[0] ? event.touches[0] : event;
+      return { x: (touch.clientX - rect.left) / rect.width, y: (touch.clientY - rect.top) / rect.height };
+    }
+
+    function bindDrawingCanvasEvents() {
+      const canvas = document.getElementById("drawingMarkupCanvas");
+      canvas.onpointerdown = drawingPointerDown;
+      canvas.onpointermove = drawingPointerMove;
+      canvas.onpointerup = drawingPointerUp;
+      canvas.ondblclick = drawingDoubleClick;
+    }
+
+    function drawingPointerDown(event) {
+      const point = getDrawingPoint(event);
+      if (drawingTool === "pan") {
+        const wrap = document.getElementById("drawingStageWrap");
+        drawingPointerStart = { x:event.clientX, y:event.clientY, left:wrap.scrollLeft, top:wrap.scrollTop, pan:true };
+        event.currentTarget.setPointerCapture(event.pointerId); return;
+      }
+      if (drawingTool === "route") { drawingCurrentPoints.push(point); redrawDrawingMarkup(); return; }
+      if (drawingTool === "note") { drawingPendingPoint = point; document.getElementById("drawingNoteText").value=""; document.getElementById("drawingNoteDialog").classList.remove("hidden"); return; }
+      if (drawingTool === "arrow" || drawingTool === "highlight") { drawingPointerStart = { ...point, pan:false }; event.currentTarget.setPointerCapture(event.pointerId); }
+    }
+
+    function drawingPointerMove(event) {
+      if (!drawingPointerStart) return;
+      if (drawingPointerStart.pan) {
+        const wrap = document.getElementById("drawingStageWrap");
+        wrap.scrollLeft = drawingPointerStart.left - (event.clientX - drawingPointerStart.x);
+        wrap.scrollTop = drawingPointerStart.top - (event.clientY - drawingPointerStart.y);
+      }
+    }
+
+    function drawingPointerUp(event) {
+      if (!drawingPointerStart) return;
+      if (!drawingPointerStart.pan) {
+        const end = getDrawingPoint(event);
+        if (drawingTool === "arrow") { drawingMarkup.arrows.push({ page:drawingCurrentPage, start:{x:drawingPointerStart.x,y:drawingPointerStart.y}, end:end }); drawingActionHistory.push({type:"arrows"}); }
+        if (drawingTool === "highlight") { drawingMarkup.highlights.push({ page:drawingCurrentPage, start:{x:drawingPointerStart.x,y:drawingPointerStart.y}, end:end }); drawingActionHistory.push({type:"highlights"}); }
+      }
+      drawingPointerStart = null; redrawDrawingMarkup();
+    }
+
+    function drawingDoubleClick(event) {
+      if (drawingTool !== "route" || drawingCurrentPoints.length < 2) return;
+      event.preventDefault();
+      document.getElementById("drawingRouteLength").value=""; document.getElementById("drawingRouteDescription").value="";
+      document.getElementById("drawingRouteDialog").classList.remove("hidden");
+    }
+
+    function cancelRouteDialog() { document.getElementById("drawingRouteDialog").classList.add("hidden"); drawingCurrentPoints=[]; redrawDrawingMarkup(); }
+    function confirmRouteDialog() {
+      const length = Number(document.getElementById("drawingRouteLength").value);
+      if (!length || length <= 0) { alert("Enter the measured route length in metres."); return; }
+      drawingMarkup.routes.push({ page:drawingCurrentPage, cableType:document.getElementById("drawingCableType").value, lengthMetres:length, description:document.getElementById("drawingRouteDescription").value.trim(), points:[...drawingCurrentPoints], enteredBy:currentOperative.name, enteredAt:new Date().toISOString() });
+      drawingActionHistory.push({type:"routes"}); drawingCurrentPoints=[]; document.getElementById("drawingRouteDialog").classList.add("hidden"); redrawDrawingMarkup(); setDrawingStatus(`Route saved: ${length.toFixed(2)} m`);
+    }
+    function cancelNoteDialog() { document.getElementById("drawingNoteDialog").classList.add("hidden"); drawingPendingPoint=null; }
+    function confirmNoteDialog() {
+      const text=document.getElementById("drawingNoteText").value.trim(); if(!text){alert("Enter a note.");return;}
+      drawingMarkup.notes.push({page:drawingCurrentPage,point:drawingPendingPoint,text:text,enteredBy:currentOperative.name,enteredAt:new Date().toISOString()}); drawingActionHistory.push({type:"notes"}); drawingPendingPoint=null; document.getElementById("drawingNoteDialog").classList.add("hidden"); redrawDrawingMarkup();
+    }
+
+    function drawingCableColour(type) { return ({LV:"#0ea5e9",HV:"#dc2626",Fibre:"#f59e0b","Street Lighting":"#16a34a",Other:"#8b5cf6"})[type] || "#0ea5e9"; }
+    function redrawDrawingMarkup() {
+      const canvas=document.getElementById("drawingMarkupCanvas"); if(!canvas)return; const ctx=canvas.getContext("2d"); const w=canvas.width,h=canvas.height; ctx.clearRect(0,0,w,h); ctx.lineCap="round";ctx.lineJoin="round";
+      drawingPageItems(drawingMarkup.highlights).forEach(item=>{ctx.fillStyle="rgba(250,204,21,.3)";ctx.strokeStyle="rgba(202,138,4,.75)";ctx.lineWidth=2;const x=Math.min(item.start.x,item.end.x)*w,y=Math.min(item.start.y,item.end.y)*h,rw=Math.abs(item.end.x-item.start.x)*w,rh=Math.abs(item.end.y-item.start.y)*h;ctx.fillRect(x,y,rw,rh);ctx.strokeRect(x,y,rw,rh);});
+      drawingPageItems(drawingMarkup.routes).forEach(route=>drawRoute(ctx,route.points,w,h,drawingCableColour(route.cableType),`${route.cableType} • ${Number(route.lengthMetres).toFixed(2)}m`));
+      if(drawingCurrentPoints.length) drawRoute(ctx,drawingCurrentPoints,w,h,"#12b8d4","Tap final point twice");
+      drawingPageItems(drawingMarkup.arrows).forEach(item=>drawArrow(ctx,item.start,item.end,w,h));
+      drawingPageItems(drawingMarkup.notes).forEach((item,i)=>drawNote(ctx,item.point,w,h,i+1));
+      renderDrawingRouteSummary();
+    }
+    function drawRoute(ctx,points,w,h,colour,label){if(!points||points.length<1)return;ctx.strokeStyle=colour;ctx.fillStyle=colour;ctx.lineWidth=5;ctx.beginPath();points.forEach((p,i)=>{const x=p.x*w,y=p.y*h;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();points.forEach(p=>{ctx.beginPath();ctx.arc(p.x*w,p.y*h,6,0,Math.PI*2);ctx.fill()});const p=points[points.length-1];ctx.font="bold 13px Arial";ctx.fillStyle="#fff";const tw=ctx.measureText(label).width;ctx.fillStyle="rgba(37,49,59,.92)";ctx.fillRect(p.x*w+9,p.y*h-20,tw+12,23);ctx.fillStyle="#fff";ctx.fillText(label,p.x*w+15,p.y*h-4)}
+    function drawArrow(ctx,start,end,w,h){const sx=start.x*w,sy=start.y*h,ex=end.x*w,ey=end.y*h,ang=Math.atan2(ey-sy,ex-sx),head=14;ctx.strokeStyle="#dc2626";ctx.fillStyle="#dc2626";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex-head*Math.cos(ang-Math.PI/6),ey-head*Math.sin(ang-Math.PI/6));ctx.lineTo(ex-head*Math.cos(ang+Math.PI/6),ey-head*Math.sin(ang+Math.PI/6));ctx.closePath();ctx.fill()}
+    function drawNote(ctx,point,w,h,index){const x=point.x*w,y=point.y*h;ctx.fillStyle="#f59e0b";ctx.beginPath();ctx.arc(x,y,14,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff";ctx.font="bold 12px Arial";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(String(index),x,y);ctx.textAlign="start";ctx.textBaseline="alphabetic"}
+    function renderDrawingRouteSummary(){const box=document.getElementById("drawingRouteSummary");const routes=drawingPageItems(drawingMarkup.routes);const notes=drawingPageItems(drawingMarkup.notes);if(!routes.length&&!notes.length){box.classList.add("hidden");return;}box.classList.remove("hidden");box.innerHTML=`<strong>Page ${drawingCurrentPage} Markups</strong>`+routes.map(r=>`<div class="drawing-route-item"><strong style="color:${drawingCableColour(r.cableType)}">${safeText(r.cableType)} • ${Number(r.lengthMetres).toFixed(2)}m</strong>${safeText(r.description||"")}</div>`).join("")+notes.map((n,i)=>`<div class="drawing-route-item"><strong>Note ${i+1}</strong>${safeText(n.text)}</div>`).join("")}
+    function undoDrawingMarkup(){if(drawingCurrentPoints.length){drawingCurrentPoints.pop();redrawDrawingMarkup();return;}const action=drawingActionHistory.pop();if(!action){setDrawingStatus("Nothing to undo");return;}drawingMarkup[action.type].pop();redrawDrawingMarkup();}
+    async function saveDrawingMarkup(){if(!drawingSourceDocument||!selectedJob)return;setDrawingStatus("Saving markup...");try{const response=await apiPost({action:"saveDrawingMarkup",folderId:selectedJob.folderId,fileId:drawingSourceDocument.id,operative:currentOperative.name,markup:drawingMarkup});setDrawingStatus(`Saved ${response.savedAt||""}`);}catch(error){setDrawingStatus(error.message||"Markup could not be saved");}}
 
     async function submitVanCheck() {
       const message = document.getElementById("vanCheckMessage");
