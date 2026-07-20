@@ -1485,6 +1485,10 @@
       `).join("");
     }
 
+    function normaliseClientKey(value) {
+      return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+    }
+
     async function loginOperative() {
       const selectedName = document.getElementById("operativeSelect").value;
       const enteredPin = document.getElementById("pinInput").value.trim();
@@ -1518,10 +1522,12 @@
         document.getElementById("operativeLoadingMessage").textContent =
           "Loading today’s jobs and checking your van-check status...";
 
-        const dashboardData = await apiPost({
-          action: "getDashboard",
+        const workspaceData = await apiPost({
+          action: "loadOperativeWorkspace",
           name: loginData.name
         });
+
+        const dashboardData = workspaceData.dashboard || {};
 
         currentOperative = {
           name: loginData.name,
@@ -1530,25 +1536,21 @@
         };
 
         jobTracking = dashboardData.tracking || {};
+        formTemplates = workspaceData.templates || [];
+
+        formTemplates.forEach(template => {
+          if (template.definition && template.formId) {
+            FORM_DEFINITIONS[template.formId] = template.definition;
+          }
+        });
 
         try {
-          document.getElementById("operativeLoadingMessage").textContent =
-            "Preparing required documents and live forms...";
-          const templatesData = await apiPost({
-            action: "getFormTemplates"
-          });
-
-          formTemplates = templatesData.templates || [];
-
-          formTemplates.forEach(template => {
-            if (template.definition && template.formId) {
-              FORM_DEFINITIONS[template.formId] =
-                template.definition;
-            }
-          });
-        } catch (templateError) {
-          console.error("Could not load form templates", templateError);
-          formTemplates = [];
+          localStorage.setItem(
+            "mpc_workspace_" + normaliseClientKey(loginData.name),
+            JSON.stringify({ savedAt: Date.now(), workspace: workspaceData })
+          );
+        } catch (storageError) {
+          console.log("Workspace browser cache skipped", storageError);
         }
 
         selectedJob = null;
