@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ManPowerConnections | Operative Portal</title>
+  <title>ManPowerConnections | Operative Portal v4.0 Stable</title>
 
   <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
@@ -478,7 +478,7 @@
     @media(min-width:700px){.operative-profile{grid-template-columns:58px minmax(0,1fr) minmax(280px,.7fr)}.profile-stats{grid-column:auto}.photo-category-grid{grid-template-columns:repeat(5,1fr)}}
 
 
-    /* ===== Drawing Markup & Cable Routes v3.2 ===== */
+    /* ===== Drawing Markup & Cable Routes v4.0 Stable ===== */
     .drawing-modal{position:fixed;inset:0;z-index:2000;background:#101820;display:flex;flex-direction:column;color:#fff}
     .drawing-topbar{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#25313b;border-bottom:1px solid rgba(255,255,255,.12)}
     .drawing-title-wrap{min-width:0;flex:1}.drawing-title{font-size:14px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.drawing-subtitle{font-size:11px;color:rgba(255,255,255,.65);margin-top:2px}
@@ -3126,7 +3126,119 @@
       });
     }
     function updateWorkflowProgress(){const p=document.getElementById("workflowProgressPill");if(p)p.textContent=currentDocumentGate.complete?"Pre-start documents complete":"Pre-start documents pending";}
-    function saveLocalWorkflowStep(step){const checks={riskAssessment:()=>riskWeather.value&&riskServices.value,permit:()=>permitNumber.value.trim()&&permitScan.value&&permitMarked.value,rams:()=>ramsConfirm.checked&&ramsSignature.value.trim(),workInstruction:()=>workInstructionConfirm.checked&&workInstructionSignature.value.trim(),plant:()=>plantTypeSelect.value&&plantIdentifier.value.trim(),finish:()=>finishWorkComplete.checked&&finishPaperworkComplete.checked&&finishPhotosComplete.checked&&finishSignature.value.trim()};const ids={riskAssessment:"riskAssessmentMessage",permit:"permitMessage",rams:"ramsMessage",workInstruction:"workInstructionMessage",plant:"plantMessage",finish:"finishMessage"};const m=document.getElementById(ids[step]);if(checks[step]&&!checks[step]()){m.innerHTML='<div class="error">Please complete all required fields before saving.</div>';return;}workflowState[step]=true;updateWorkflowProgress();m.innerHTML='<div class="success">Saved in this redesigned portal preview. Permanent Google Sheet saving will be connected when the final client forms are confirmed.</div>'; }
+    async function saveLocalWorkflowStep(step) {
+      if (!selectedJob || !currentOperative) return;
+
+      const ids = {
+        riskAssessment: "riskAssessmentMessage",
+        permit: "permitMessage",
+        rams: "ramsMessage",
+        workInstruction: "workInstructionMessage",
+        plant: "plantMessage",
+        finish: "finishMessage"
+      };
+      const message = document.getElementById(ids[step]);
+      const value = id => {
+        const el = document.getElementById(id);
+        return el ? String(el.value || "").trim() : "";
+      };
+      const checked = id => {
+        const el = document.getElementById(id);
+        return !!(el && el.checked);
+      };
+
+      const payloads = {
+        riskAssessment: {
+          weather: value("riskWeather"),
+          services: value("riskServices")
+        },
+        permit: {
+          permitNumber: value("permitNumber"),
+          permitScanConfirmed: value("permitScan"),
+          permitMarkedConfirmed: value("permitMarked")
+        },
+        rams: {
+          confirmed: checked("ramsConfirm"),
+          signature: value("ramsSignature")
+        },
+        workInstruction: {
+          confirmed: checked("workInstructionConfirm"),
+          signature: value("workInstructionSignature")
+        },
+        plant: {
+          plantType: value("plantTypeSelect"),
+          plantIdentifier: value("plantIdentifier"),
+          notes: value("plantNotes")
+        },
+        finish: {
+          workComplete: checked("finishWorkComplete"),
+          paperworkComplete: checked("finishPaperworkComplete"),
+          photosComplete: checked("finishPhotosComplete"),
+          signature: value("finishSignature")
+        }
+      };
+
+      const data = payloads[step] || {};
+      const valid = {
+        riskAssessment: data.weather && data.services,
+        permit: data.permitNumber && data.permitScanConfirmed && data.permitMarkedConfirmed,
+        rams: data.confirmed && data.signature,
+        workInstruction: data.confirmed && data.signature,
+        plant: data.plantType && data.plantIdentifier,
+        finish: data.workComplete && data.paperworkComplete && data.photosComplete && data.signature
+      }[step];
+
+      if (!valid) {
+        message.innerHTML = '<div class="error">Please complete all required fields before saving.</div>';
+        return;
+      }
+
+      const button = message.previousElementSibling;
+      if (button && button.tagName === "BUTTON") button.disabled = true;
+      message.innerHTML = '<div class="success">Saving...</div>';
+
+      try {
+        if (step === "finish") {
+          const result = await apiPost({
+            action: "updateJobStatus",
+            name: currentOperative.name,
+            jobName: selectedJob.jobName,
+            folderId: selectedJob.folderId,
+            jobAction: "complete",
+            completionSignature: data.signature,
+            completionNotes: "Physical work, paperwork and completion photos confirmed complete through final job sign-off."
+          });
+
+          workflowState.finish = true;
+          jobTracking[selectedJob.folderId] = {
+            ...(jobTracking[selectedJob.folderId] || {}),
+            status: result.status,
+            completedTime: result.timestamp,
+            completionPdfUrl: result.pdfUrl || ""
+          };
+          updateTrackingDisplay();
+          await loadSmartWorkflow();
+          message.innerHTML = `<div class="success">Job completed and saved at ${safeText(result.timestamp)}.${result.pdfUrl ? `<br><br><a href="${safeText(result.pdfUrl)}" target="_blank" rel="noopener" style="color:#166534;font-weight:900;">Open Completion PDF</a>` : ""}</div>`;
+        } else {
+          const result = await apiPost({
+            action: "saveWorkflowStep",
+            name: currentOperative.name,
+            jobName: selectedJob.jobName,
+            folderId: selectedJob.folderId,
+            step: step,
+            stepData: data
+          });
+          workflowState[step] = true;
+          updateWorkflowProgress();
+          await loadSmartWorkflow();
+          message.innerHTML = `<div class="success">Saved permanently at ${safeText(result.savedAt)}.</div>`;
+        }
+      } catch (error) {
+        message.innerHTML = `<div class="error">${safeText(error.message || "This step could not be saved.")}</div>`;
+      } finally {
+        if (button && button.tagName === "BUTTON") button.disabled = false;
+      }
+    }
 
     function getStatusPresentation(status) {
       const value = String(status || "Not Accepted");
