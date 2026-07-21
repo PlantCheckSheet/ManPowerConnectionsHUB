@@ -4098,6 +4098,47 @@
       }
     }
 
+    async function uploadDrawingPdfInChunks(base64Data) {
+      const chunkSize = 650000;
+      const totalChunks = Math.ceil(base64Data.length / chunkSize);
+      const startResponse = await apiPost({
+        action: "startDrawingPdfUpload",
+        folderId: selectedJob.folderId,
+        fileId: drawingSourceDocument.id,
+        operative: currentOperative.name,
+        markup: drawingMarkup,
+        totalChunks: totalChunks
+      });
+
+      const uploadId = startResponse.uploadId;
+      if (!uploadId) throw new Error("The PDF upload could not be started.");
+
+      for (let index = 0; index < totalChunks; index++) {
+        const chunk = base64Data.slice(index * chunkSize, (index + 1) * chunkSize);
+        setDrawingStatus(`Uploading PDF part ${index + 1} of ${totalChunks}...`);
+        showDrawingSaveResult(`Uploading completed PDF: part ${index + 1} of ${totalChunks}…`);
+        await apiPost({
+          action: "uploadDrawingPdfChunk",
+          folderId: selectedJob.folderId,
+          uploadId: uploadId,
+          chunkIndex: index,
+          chunkData: chunk
+        });
+      }
+
+      setDrawingStatus("Finalising As-Built PDF in Google Drive...");
+      showDrawingSaveResult("Finalising the completed PDF in Google Drive…");
+      return apiPost({
+        action: "finishDrawingPdfUpload",
+        folderId: selectedJob.folderId,
+        fileId: drawingSourceDocument.id,
+        operative: currentOperative.name,
+        markup: drawingMarkup,
+        uploadId: uploadId,
+        totalChunks: totalChunks
+      });
+    }
+
     async function createDrawingAsBuiltPdf(){
       if(!drawingSourceDocument||!selectedJob||drawingPdfInProgress)return;
       drawingPdfInProgress=true;
@@ -4107,7 +4148,6 @@
       if(button) button.innerHTML="⏳ Creating PDF…";
       showDrawingSaveResult("Saving progress before creating the PDF…");
       try{
-        // Save the editable geometry first, independently of PDF generation.
         await apiPost({
           action:"saveDrawingProgress",
           folderId:selectedJob.folderId,
@@ -4115,21 +4155,19 @@
           operative:currentOperative.name,
           markup:drawingMarkup
         });
+
         setDrawingStatus("Creating As-Built PDF...");
         showDrawingSaveResult("Creating the completed drawing. Please keep this screen open…");
         const annotatedPdfBase64=await buildAnnotatedDrawingPdfBase64();
-        setDrawingStatus("Uploading As-Built PDF to Google Drive...");
-        showDrawingSaveResult("Uploading the completed PDF to Google Drive…");
-        const response=await apiPost({
-          action:"saveDrawingPdf",
-          folderId:selectedJob.folderId,
-          fileId:drawingSourceDocument.id,
-          operative:currentOperative.name,
-          markup:drawingMarkup,
-          annotatedPdfBase64
-        });
+        const approximateMb=(annotatedPdfBase64.length*0.75/1024/1024).toFixed(1);
+        setDrawingStatus(`Prepared ${approximateMb} MB PDF for upload...`);
+
+        const response=await uploadDrawingPdfInChunks(annotatedPdfBase64);
+        if(!response || !response.annotatedPdfUrl) {
+          throw new Error("Google Drive did not return the completed PDF link.");
+        }
         setDrawingStatus(`As-Built PDF saved ${response.savedAt||""}`);
-        showDrawingSaveResult("As-Built PDF saved successfully.", response.annotatedPdfUrl || "");
+        showDrawingSaveResult("As-Built PDF saved successfully.", response.annotatedPdfUrl);
       }catch(error){
         const message=error.message||"The As-Built PDF could not be created.";
         setDrawingStatus(message);
