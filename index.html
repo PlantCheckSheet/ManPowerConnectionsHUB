@@ -14,8 +14,16 @@
   <meta name="theme-color" content="#12b8d4">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script>
+  window.addEventListener("load", function () {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      console.error("jsPDF failed to load");
+    } else {
+      console.log("jsPDF loaded successfully");
+    }
+  });
+</script>
     // PDF.js uses a separate background worker to open and render PDFs.
     // The worker version must match the main PDF.js version above.
     window.pdfjsLib.GlobalWorkerOptions.workerSrc =
