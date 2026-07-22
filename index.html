@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ManPowerConnections | Operative Portal v4.4 Mapped Certificates</title>
+  <title>ManPowerConnections | Operative Portal v4.6 Multi-Sheet Editable Work Packs</title>
 
   <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
@@ -508,6 +508,18 @@ window.addEventListener("load", function () {
     .drawing-route-summary{position:absolute;right:12px;top:12px;z-index:5;width:min(280px,calc(100% - 24px));max-height:45%;overflow:auto;background:rgba(255,255,255,.95);color:var(--mpc-charcoal);border-radius:14px;padding:10px;box-shadow:0 10px 24px rgba(0,0,0,.2)}
     .drawing-route-item{padding:8px;border-bottom:1px solid #e5e7eb;font-size:11px}.drawing-route-item:last-child{border-bottom:0}.drawing-route-item strong{display:block;font-size:12px}
     @media(max-width:700px){.drawing-toolbar{grid-template-columns:repeat(8,82px)}.drawing-route-summary{display:none}.drawing-topbar{flex-wrap:wrap}.drawing-title-wrap{flex-basis:55%}}
+
+
+    /* ===== Multi-sheet editable work packs v4.6 ===== */
+    .mapped-section-tabs{display:flex;gap:8px;overflow-x:auto;padding:4px 0 8px;margin-top:14px;scrollbar-width:thin}
+    .mapped-section-tab{border:1px solid #dce5ea;background:#fff;color:var(--mpc-charcoal);border-radius:999px;padding:10px 13px;font-size:12px;font-weight:900;white-space:nowrap;cursor:pointer}
+    .mapped-section-tab.active{background:var(--mpc-cyan);border-color:var(--mpc-cyan);color:#fff}
+    .mapped-section-tab.complete{box-shadow:inset 0 0 0 2px #16a34a}
+    .mapped-certificate-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}
+    .mapped-certificate-actions .button{margin:0}
+    .mapped-certificate-actions #saveMappedCertificateButton{grid-column:1/-1}
+    .mapped-field-sheet{font-size:11px;color:var(--mpc-slate);font-weight:800;margin-top:7px}
+    @media(min-width:700px){.mapped-certificate-actions{grid-template-columns:auto 1fr auto}.mapped-certificate-actions #saveMappedCertificateButton{grid-column:1/-1}}
 
     footer { text-align: center; padding: 18px; color: rgba(255,255,255,0.78); font-size: 12px; font-weight: 700; }
 
@@ -1022,8 +1034,8 @@ window.addEventListener("load", function () {
             <label for="templateFile">Template File</label><input id="templateFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx">
             <div id="certificateMappingPanel">
               <label for="templateMapping">Certificate Field Mapping</label>
-              <textarea id="templateMapping" rows="7" placeholder="Certificate Number|B4|text|yes|Enter certificate number&#10;Site Address|B7|textarea|yes|Enter site address&#10;Test Reading|C15|number|yes|Enter reading&#10;Completion Date|F24|date|yes"></textarea>
-              <div class="small-note">One field per line: Label | Excel cell | Type | Required. Types: text, number, date, time, textarea, checkbox or select. For a select field, add comma-separated choices as the sixth item.</div>
+              <textarea id="templateMapping" rows="9" placeholder="Site Address|Work Instruction|B7|textarea|yes|Enter site address&#10;Permit Number|Schedule 1|C12|text|yes|Enter permit number&#10;Weather suitable?|POWRA|F18|select|yes|Choose...|Yes,No,N/A&#10;Completion Date|Schedule 2|F24|date|yes"></textarea>
+              <div class="small-note">Recommended format: Label | Worksheet name | Cell | Type | Required | Placeholder | Select choices. The older single-sheet format still works. Types: text, number, date, time, textarea, checkbox or select.</div>
             </div>
             <button id="uploadTemplateButton" class="button" type="button" onclick="uploadNewFormTemplate()">Upload to Template Library</button>
             <div id="templateUploadMessage"></div>
@@ -1082,8 +1094,15 @@ window.addEventListener("load", function () {
         <button class="modal-close" type="button" onclick="closeMappedCertificate()">×</button>
         <div class="job-header"><div><h2 id="mappedCertificateTitle">Complete Certificate</h2><p id="mappedCertificateIntro">Enter the certificate details below.</p></div><span class="pill">Autosaved to job copy</span></div>
         <div id="mappedCertificateMessage"></div>
+        <div id="mappedCertificateProgress" class="smart-workflow-hero" style="margin-top:14px;"></div>
+        <div id="mappedCertificateSectionTabs" class="mapped-section-tabs"></div>
         <div id="mappedCertificateFields" class="creator-grid" style="margin-top:14px;"></div>
-        <button id="saveMappedCertificateButton" class="button" type="button" onclick="submitMappedCertificate()">Generate Completed Certificate</button>
+        <div class="mapped-certificate-actions">
+          <button id="mappedPreviousButton" class="button secondary" type="button" onclick="changeMappedCertificateSection(-1)">Previous</button>
+          <button id="mappedDraftButton" class="button secondary" type="button" onclick="saveMappedCertificateProgress()">Save Progress</button>
+          <button id="mappedNextButton" class="button" type="button" onclick="changeMappedCertificateSection(1)">Next</button>
+          <button id="saveMappedCertificateButton" class="button" type="button" onclick="submitMappedCertificate()">Complete &amp; Generate PDF</button>
+        </div>
       </div>
     </div>
 
@@ -1144,6 +1163,7 @@ window.addEventListener("load", function () {
     let formTemplates = [];
     let currentLiveFormSourceDocument = null;
     let currentMappedCertificate = null;
+    let currentMappedCertificateSection = 0;
     let currentDocumentGate = {
       complete: false,
       documents: [],
@@ -3853,18 +3873,92 @@ window.addEventListener("load", function () {
       const modal = document.getElementById("mappedCertificateModal");
       const message = document.getElementById("mappedCertificateMessage");
       modal.classList.remove("hidden");
-      message.innerHTML = '<div class="section-intro">Loading certificate fields...</div>';
+      message.innerHTML = '<div class="section-intro">Loading editable work pack...</div>';
       document.getElementById("mappedCertificateFields").innerHTML = "";
+      document.getElementById("mappedCertificateSectionTabs").innerHTML = "";
+      document.getElementById("mappedCertificateProgress").innerHTML = "";
       try {
         const data = await apiPost({ action:"getMappedCertificate", name:currentOperative.name, folderId:selectedJob.folderId, documentId:doc.id });
         currentMappedCertificate = Object.assign({}, data, { documentIndex:documentIndex });
+        currentMappedCertificateSection = 0;
         document.getElementById("mappedCertificateTitle").textContent = `${data.formId} — ${data.title}`;
         document.getElementById("mappedCertificateIntro").textContent = `${selectedJob.jobName} • ${data.version || "Current version"}`;
-        document.getElementById("mappedCertificateFields").innerHTML = (data.fields || []).map(field => renderMappedCertificateField(field)).join("");
+        renderMappedCertificateSection();
         message.innerHTML = "";
       } catch (error) {
         message.innerHTML = `<div class="error">${safeText(error.message)}</div>`;
       }
+    }
+
+    function getMappedCertificateSections() {
+      if (!currentMappedCertificate) return [];
+      const sections = Array.isArray(currentMappedCertificate.sections) && currentMappedCertificate.sections.length
+        ? currentMappedCertificate.sections
+        : [{ id:"section_0", title:(currentMappedCertificate.fields && currentMappedCertificate.fields[0] && currentMappedCertificate.fields[0].sheet) || "Form" }];
+      return sections;
+    }
+
+    function mappedFieldValue(field) {
+      const element = document.querySelector(`[data-mapped-field="${field.id}"]`);
+      if (!element) return field.value === undefined || field.value === null ? "" : field.value;
+      return field.type === "checkbox" ? Boolean(element.checked) : String(element.value || "").trim();
+    }
+
+    function storeVisibleMappedValues() {
+      if (!currentMappedCertificate) return;
+      (currentMappedCertificate.fields || []).forEach(field => {
+        const element = document.querySelector(`[data-mapped-field="${field.id}"]`);
+        if (element) field.value = field.type === "checkbox" ? Boolean(element.checked) : element.value;
+      });
+    }
+
+    function isMappedFieldComplete(field) {
+      const value = field.value;
+      if (field.type === "checkbox") return value === true || String(value).toUpperCase() === "YES";
+      return String(value === undefined || value === null ? "" : value).trim() !== "";
+    }
+
+    function renderMappedCertificateSection() {
+      if (!currentMappedCertificate) return;
+      storeVisibleMappedValues();
+      const sections = getMappedCertificateSections();
+      currentMappedCertificateSection = Math.max(0, Math.min(currentMappedCertificateSection, sections.length - 1));
+      const currentSection = sections[currentMappedCertificateSection];
+      const sectionFields = (currentMappedCertificate.fields || []).filter(field => field.sheet === currentSection.title);
+      const requiredFields = (currentMappedCertificate.fields || []).filter(field => field.required);
+      const completedRequired = requiredFields.filter(isMappedFieldComplete).length;
+      const percent = requiredFields.length ? Math.round((completedRequired / requiredFields.length) * 100) : 100;
+
+      document.getElementById("mappedCertificateProgress").innerHTML = `
+        <div class="smart-workflow-label">Editable Work Pack</div>
+        <div class="smart-workflow-next">${safeText(currentSection.title)}</div>
+        <div class="smart-workflow-description">Section ${currentMappedCertificateSection + 1} of ${sections.length} • ${completedRequired} of ${requiredFields.length} required fields complete</div>
+        <div class="smart-progress-track"><div class="smart-progress-fill" style="width:${percent}%"></div></div>`;
+
+      document.getElementById("mappedCertificateSectionTabs").innerHTML = sections.map((section, index) => {
+        const fields = (currentMappedCertificate.fields || []).filter(field => field.sheet === section.title && field.required);
+        const complete = fields.length && fields.every(isMappedFieldComplete);
+        return `<button type="button" class="mapped-section-tab ${index === currentMappedCertificateSection ? "active" : ""} ${complete ? "complete" : ""}" onclick="goToMappedCertificateSection(${index})">${complete ? "✓ " : ""}${safeText(section.title)}</button>`;
+      }).join("");
+
+      document.getElementById("mappedCertificateFields").innerHTML = sectionFields.length
+        ? sectionFields.map(field => renderMappedCertificateField(field)).join("")
+        : '<div class="section-intro">No editable fields have been mapped for this worksheet.</div>';
+
+      document.getElementById("mappedPreviousButton").disabled = currentMappedCertificateSection === 0;
+      document.getElementById("mappedNextButton").disabled = currentMappedCertificateSection >= sections.length - 1;
+    }
+
+    function goToMappedCertificateSection(index) {
+      storeVisibleMappedValues();
+      currentMappedCertificateSection = Number(index) || 0;
+      renderMappedCertificateSection();
+    }
+
+    function changeMappedCertificateSection(direction) {
+      storeVisibleMappedValues();
+      currentMappedCertificateSection += Number(direction) || 0;
+      renderMappedCertificateSection();
     }
 
     function renderMappedCertificateField(field) {
@@ -3875,34 +3969,64 @@ window.addEventListener("load", function () {
       let control = "";
       if (field.type === "textarea") control = `<textarea id="${id}" data-mapped-field="${safeText(field.id)}" ${required} placeholder="${safeText(field.placeholder || "")}">${value}</textarea>`;
       else if (field.type === "select") control = `<select id="${id}" data-mapped-field="${safeText(field.id)}" ${required}><option value="">Select...</option>${(field.options || []).map(option => `<option value="${safeText(option)}" ${String(option)===String(field.value)?"selected":""}>${safeText(option)}</option>`).join("")}</select>`;
-      else if (field.type === "checkbox") control = `<label class="form-choice"><input id="${id}" data-mapped-field="${safeText(field.id)}" type="checkbox" ${String(field.value).toUpperCase()==="YES"?"checked":""}><div><strong>Confirm</strong></div></label>`;
+      else if (field.type === "checkbox") control = `<label class="form-choice"><input id="${id}" data-mapped-field="${safeText(field.id)}" type="checkbox" ${field.value === true || String(field.value).toUpperCase()==="YES"?"checked":""}><div><strong>Confirm</strong></div></label>`;
       else control = `<input id="${id}" data-mapped-field="${safeText(field.id)}" type="${["number","date","time"].includes(field.type)?field.type:"text"}" value="${value}" ${required} placeholder="${safeText(field.placeholder || "")}">`;
-      return `<div class="creator-section"><label for="${id}">${safeText(field.label)}${requiredMark}</label>${control}<div class="small-note">Certificate cell: ${safeText(field.cell)}</div></div>`;
+      return `<div class="creator-section"><label for="${id}">${safeText(field.label)}${requiredMark}</label>${control}<div class="mapped-field-sheet">${safeText(field.sheet)} • Cell ${safeText(field.cell)}</div></div>`;
     }
 
     function closeMappedCertificate() {
+      storeVisibleMappedValues();
       document.getElementById("mappedCertificateModal").classList.add("hidden");
       currentMappedCertificate = null;
+      currentMappedCertificateSection = 0;
+    }
+
+    function collectMappedCertificateValues(validateRequired) {
+      storeVisibleMappedValues();
+      const values = {};
+      let missingField = null;
+      (currentMappedCertificate.fields || []).forEach(field => {
+        const value = field.value === undefined || field.value === null ? "" : field.value;
+        values[field.id] = value;
+        if (validateRequired && !missingField && field.required && !isMappedFieldComplete(field)) missingField = field;
+      });
+      return { values, missingField };
+    }
+
+    async function saveMappedCertificateProgress() {
+      if (!currentMappedCertificate || !selectedJob || !currentOperative) return;
+      const button = document.getElementById("mappedDraftButton");
+      const message = document.getElementById("mappedCertificateMessage");
+      const collected = collectMappedCertificateValues(false);
+      button.disabled = true;
+      message.innerHTML = '<div class="section-intro">Saving your progress...</div>';
+      try {
+        const result = await apiPost({ action:"saveMappedCertificate", mode:"DRAFT", name:currentOperative.name, jobName:selectedJob.jobName, folderId:selectedJob.folderId, documentId:currentMappedCertificate.documentId, values:collected.values });
+        message.innerHTML = `<div class="success">Progress saved at ${safeText(result.savedAt)}.</div>`;
+        renderMappedCertificateSection();
+      } catch (error) {
+        message.innerHTML = `<div class="error">${safeText(error.message)}</div>`;
+      } finally { button.disabled = false; }
     }
 
     async function submitMappedCertificate() {
       if (!currentMappedCertificate || !selectedJob || !currentOperative) return;
       const button = document.getElementById("saveMappedCertificateButton");
       const message = document.getElementById("mappedCertificateMessage");
-      const values = {};
-      let missing = "";
-      (currentMappedCertificate.fields || []).forEach(field => {
-        const element = document.querySelector(`[data-mapped-field="${field.id}"]`);
-        const value = field.type === "checkbox" ? Boolean(element && element.checked) : String(element ? element.value : "").trim();
-        values[field.id] = value;
-        if (!missing && field.required && (field.type !== "checkbox") && !String(value).trim()) missing = field.label;
-      });
-      if (missing) { message.innerHTML = `<div class="error">${safeText(missing)} is required.</div>`; return; }
+      const collected = collectMappedCertificateValues(true);
+      if (collected.missingField) {
+        const sections = getMappedCertificateSections();
+        const sectionIndex = sections.findIndex(section => section.title === collected.missingField.sheet);
+        if (sectionIndex >= 0) currentMappedCertificateSection = sectionIndex;
+        renderMappedCertificateSection();
+        message.innerHTML = `<div class="error">${safeText(collected.missingField.label)} is required.</div>`;
+        return;
+      }
       button.disabled = true;
-      message.innerHTML = '<div class="section-intro">Updating the certificate and creating the PDF...</div>';
+      message.innerHTML = '<div class="section-intro">Updating every worksheet and creating the completed PDF...</div>';
       try {
-        const result = await apiPost({ action:"saveMappedCertificate", name:currentOperative.name, jobName:selectedJob.jobName, folderId:selectedJob.folderId, documentId:currentMappedCertificate.documentId, values:values });
-        message.innerHTML = `<div class="success">Certificate completed at ${safeText(result.savedAt)}.<br><br><a href="${safeText(result.pdfUrl)}" target="_blank" rel="noopener" style="font-weight:900;">Open completed PDF</a></div>`;
+        const result = await apiPost({ action:"saveMappedCertificate", mode:"FINAL", name:currentOperative.name, jobName:selectedJob.jobName, folderId:selectedJob.folderId, documentId:currentMappedCertificate.documentId, values:collected.values });
+        message.innerHTML = `<div class="success">Work pack completed at ${safeText(result.savedAt)}.<br><br><a href="${safeText(result.pdfUrl)}" target="_blank" rel="noopener" style="font-weight:900;">Open completed PDF</a></div>`;
         await ensureSelectedJobDocumentsLoaded(true);
         renderDocuments();
       } catch (error) {
