@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ManPowerConnections | Operative Portal v4.6 Multi-Sheet Editable Work Packs</title>
+  <title>ManPowerConnections | Operative Portal v5.0 Automatic Document Work Packs</title>
 
   <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
@@ -1449,11 +1449,17 @@ window.addEventListener("load", function () {
         const existing = select.value;
         select.innerHTML = '<option value="">Select operative...</option>' + (data.operatives || []).map(op => `<option value="${safeText(op.name)}">${safeText(op.name)}${op.vehicle ? " — " + safeText(op.vehicle) : ""}</option>`).join("");
         if (existing) select.value = existing;
-        document.getElementById("creatorForms").innerHTML = (data.templates || []).map(template => {
+        const templates = data.templates || [];
+        const packs = {};
+        templates.forEach(template => { if (template.packId) { if (!packs[template.packId]) packs[template.packId] = {title:template.packTitle || template.packId, items:[]}; packs[template.packId].items.push(template); } });
+        const standalone = templates.filter(template => !template.packId);
+        const packHtml = Object.keys(packs).map(packId => `<label class="form-choice"><input type="checkbox" name="creatorForm" value="${safeText(packId)}"><div><strong>📁 ${safeText(packs[packId].title)}</strong><span>${packs[packId].items.length} editable documents • assigned as one work pack</span></div></label>`).join("");
+        const standaloneHtml = standalone.map(template => {
           const typeLabels = { LIVE_FORM:"Live digital form", MAPPED_CERTIFICATE:"Editable certificate", EDITABLE_DOCUMENT:"Editable Drive template", READ_SIGN:"Read and sign", REFERENCE:"Reference document", DRAWING:"Drawing / markup" };
           const typeLabel = typeLabels[String(template.templateType || "LIVE_FORM").toUpperCase()] || "Job template";
           return `<label class="form-choice"><input type="checkbox" name="creatorForm" value="${safeText(template.formId)}"><div><strong>${safeText(template.formId)} — ${safeText(template.title)}</strong><span>${safeText(template.version || "Current version")} • ${safeText(typeLabel)}</span></div></label>`;
-        }).join("") || '<div class="small-note">No active form templates were found.</div>';
+        }).join("");
+        document.getElementById("creatorForms").innerHTML = packHtml + standaloneHtml || '<div class="small-note">No active form templates were found.</div>';
       } catch (error) {
         document.getElementById("jobCreatorMessage").innerHTML = `<div class="error">${safeText(error.message)}</div>`;
       }
@@ -1463,10 +1469,21 @@ window.addEventListener("load", function () {
       const target = document.getElementById("templateLibraryList");
       if (!target) return;
       const typeLabels = { LIVE_FORM:"Live digital form", MAPPED_CERTIFICATE:"Editable certificate", EDITABLE_DOCUMENT:"Editable Drive template", READ_SIGN:"Read and sign", REFERENCE:"Reference document", DRAWING:"Drawing / markup" };
-      target.innerHTML = (templates || []).map(template => {
+      const packs = {};
+      (templates || []).forEach(template => {
+        if (!template.packId) return;
+        if (!packs[template.packId]) packs[template.packId] = { title:template.packTitle || template.packId, items:[] };
+        packs[template.packId].items.push(template);
+      });
+      const packHtml = Object.keys(packs).map(packId => {
+        const pack = packs[packId]; pack.items.sort((a,b)=>Number(a.packOrder||0)-Number(b.packOrder||0));
+        return `<div class="form-choice" style="display:block;"><div><strong>📁 ${safeText(pack.title)}</strong><span>${pack.items.length} documents</span></div><div style="margin-top:10px;display:grid;gap:6px;">${pack.items.map(item=>`<div class="small-note">${Number(item.packOrder||0)}. ${safeText(item.formId)} — ${safeText(item.title)}</div>`).join("")}</div></div>`;
+      }).join("");
+      const standaloneHtml = (templates || []).filter(t=>!t.packId).map(template => {
         const type = String(template.templateType || "LIVE_FORM").toUpperCase();
         return `<div class="form-choice"><div><strong>${safeText(template.formId)} — ${safeText(template.title)}</strong><span>${safeText(template.version || "Current version")} • ${safeText(typeLabels[type] || "Job template")}</span></div></div>`;
-      }).join("") || '<div class="small-note">No active templates have been added yet.</div>';
+      }).join("");
+      target.innerHTML = packHtml + standaloneHtml || '<div class="small-note">No active templates have been added yet.</div>';
     }
 
     async function loadTemplateLibraryData() {
@@ -4037,78 +4054,51 @@ window.addEventListener("load", function () {
     function renderDocuments() {
       const list = document.getElementById("documentList");
       const intro = document.getElementById("documentsIntro");
-
-      if (!selectedJob) {
-        intro.textContent = "Select a job to view its documents.";
-        list.innerHTML = "";
-        return;
-      }
-
-      intro.textContent =
-        `${currentOperative.name} • ${selectedJob.jobName} • ${selectedJob.site}`;
-
+      if (!selectedJob) { intro.textContent = "Select a job to view its documents."; list.innerHTML = ""; return; }
+      intro.textContent = `${currentOperative.name} • ${selectedJob.jobName} • ${selectedJob.site}`;
       const documents = selectedJob.documents || [];
       renderDocumentProgressSummary();
+      if (!documents.length) { list.innerHTML = `<div class="error">No documents are currently inside this job folder.</div>`; return; }
 
-      if (!documents.length) {
-        list.innerHTML = `<div class="error">No documents are currently inside this job folder.</div>`;
-        return;
-      }
-
-      list.innerHTML = documents.map((doc, index) => {
-        const status = getDocumentStatusInfo(doc);
-        const template = status.template;
-        const required = status.required;
-
-        return `
-          <div class="document-hub-item ${status.className === "complete" ? "done" : required ? "required" : ""}">
-            <div class="document-hub-title">📄 ${safeText(doc.name)}</div>
-            <div class="document-hub-meta">
-              <span class="document-status-pill ${status.className}">${safeText(status.label)}</span>
-              ${status.detail ? `<span style="margin-left:8px;">${safeText(status.detail)}</span>` : ""}
-            </div>
-
-            ${required && !required.acknowledged ? `
-              <div class="acknowledgement-box">
-                <strong>${safeText(required.requirementTitle)}</strong>
-                <p style="margin:6px 0 0;">View the document and acknowledge it before starting work.</p>
-              </div>
-            ` : ""}
-
-            <div class="document-hub-actions">
-              ${doc.mappedCertificate ? `
-                <button class="button" onclick="openMappedCertificate(${index})">✏️ Complete Certificate</button>
-              ` : `
-                <a class="button secondary" href="${safeText(doc.url)}" target="_blank" rel="noopener">View Document</a>
-              `}
-
-              ${String(doc.type || "").toLowerCase().includes("pdf") ? `
-                <button class="button" onclick="openDrawingViewer(${index})">📐 Open Drawing Tool</button>
-              ` : ""}
-
-              ${required && !required.acknowledged ? `
-                <button class="button" onclick="acknowledgeRequiredDocument(${index})">Acknowledge</button>
-              ` : ""}
-
-              ${template && status.label !== "Submitted" ? `
-                <button class="button" onclick="openDocumentAsLiveForm('${safeText(template.formId)}', ${index})">
-                  ${status.label === "Draft saved" ? "Continue Form" : "Complete Live"}
-                </button>
-              ` : ""}
-
-              ${template && currentJobFormStatuses[template.formId] && currentJobFormStatuses[template.formId].pdfUrl ? `
-                <a class="button secondary" href="${safeText(currentJobFormStatuses[template.formId].pdfUrl)}" target="_blank" rel="noopener">Open Submitted PDF</a>
-              ` : ""}
-            </div>
-          </div>
-        `;
+      const packGroups = {};
+      documents.forEach((doc,index) => {
+        const mapped = doc.mappedCertificate;
+        if (mapped && mapped.packId) {
+          if (!packGroups[mapped.packId]) packGroups[mapped.packId] = { title:mapped.packTitle || mapped.packId, items:[] };
+          packGroups[mapped.packId].items.push({doc,index,order:Number(mapped.packOrder||0)});
+        }
+      });
+      const packedIndexes = new Set(Object.values(packGroups).flatMap(pack=>pack.items.map(item=>item.index)));
+      const packHtml = Object.keys(packGroups).map(packId => {
+        const pack = packGroups[packId]; pack.items.sort((a,b)=>a.order-b.order);
+        const completeCount = pack.items.filter(item => getDocumentStatusInfo(item.doc).className === "complete").length;
+        const percent = pack.items.length ? Math.round(completeCount / pack.items.length * 100) : 0;
+        return `<div class="document-hub-item ${completeCount===pack.items.length?'done':''}">
+          <div class="document-hub-title">📁 ${safeText(pack.title)}</div>
+          <div class="document-hub-meta"><span class="document-status-pill ${completeCount===pack.items.length?'complete':'waiting'}">${completeCount} of ${pack.items.length} complete</span></div>
+          <div class="smart-progress-track" style="background:#dce5ea;margin:12px 0;"><div class="smart-progress-fill" style="width:${percent}%"></div></div>
+          <div style="display:grid;gap:8px;">${pack.items.map(item=>{const s=getDocumentStatusInfo(item.doc);return `<div class="guided-progress-row ${s.className==='complete'?'complete':''}"><div class="guided-progress-icon">${s.className==='complete'?'✓':item.order}</div><div><div class="guided-progress-title">${safeText(item.doc.mappedCertificate.title)}</div><div class="guided-progress-copy">${safeText(s.label)}</div></div><button class="workflow-action" onclick="openMappedCertificate(${item.index})">${s.className==='complete'?'Edit':'Complete'}</button></div>`}).join('')}</div>
+          <button class="button" onclick="generateCompleteWorkPack('${safeText(packId)}')">📄 Generate Complete Work Pack PDF</button>
+        </div>`;
       }).join("");
+
+      const standaloneHtml = documents.map((doc,index) => {
+        if (packedIndexes.has(index)) return "";
+        const status = getDocumentStatusInfo(doc), template=status.template, required=status.required;
+        return `<div class="document-hub-item ${status.className === "complete" ? "done" : required ? "required" : ""}"><div class="document-hub-title">📄 ${safeText(doc.name)}</div><div class="document-hub-meta"><span class="document-status-pill ${status.className}">${safeText(status.label)}</span>${status.detail ? `<span style="margin-left:8px;">${safeText(status.detail)}</span>` : ""}</div><div class="document-hub-actions">${doc.mappedCertificate ? `<button class="button" onclick="openMappedCertificate(${index})">✏️ Complete Certificate</button>` : `<a class="button secondary" href="${safeText(doc.url)}" target="_blank" rel="noopener">View Document</a>`}${String(doc.type || "").toLowerCase().includes("pdf") ? `<button class="button" onclick="openDrawingViewer(${index})">📐 Open Drawing Tool</button>` : ""}${required && !required.acknowledged ? `<button class="button" onclick="acknowledgeRequiredDocument(${index})">Acknowledge</button>` : ""}${template && status.label !== "Submitted" ? `<button class="button" onclick="openDocumentAsLiveForm('${safeText(template.formId)}', ${index})">${status.label === "Draft saved" ? "Continue Form" : "Complete Live"}</button>` : ""}</div></div>`;
+      }).join("");
+      list.innerHTML = packHtml + standaloneHtml;
     }
 
-
-    let drawingPinchStartDistance = 0;
-    let drawingPinchStartZoom = 1;
-    let drawingPinchRenderTimer = null;
+    async function generateCompleteWorkPack(packId) {
+      if (!selectedJob || !currentOperative) return;
+      const list = document.getElementById("documentList");
+      try {
+        const result = await apiPost({action:"generateCompleteWorkPack",name:currentOperative.name,jobName:selectedJob.jobName,folderId:selectedJob.folderId,packId:packId});
+        list.insertAdjacentHTML("afterbegin", `<div class="success">Complete work pack created at ${safeText(result.savedAt)}.<br><br><a href="${safeText(result.pdfUrl)}" target="_blank" rel="noopener" style="font-weight:900;">Open complete work pack PDF</a></div>`);
+        await ensureSelectedJobDocumentsLoaded(true); renderDocuments();
+      } catch (error) { list.insertAdjacentHTML("afterbegin", `<div class="error">${safeText(error.message)}</div>`); }
+    }
 
     function setupDrawingPinchZoom() {
       const wrap = document.getElementById("drawingStageWrap");
