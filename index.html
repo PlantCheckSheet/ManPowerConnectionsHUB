@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ManPowerConnections | Operative Portal v5.2 Processing Manager</title>
+  <title>ManPowerConnections | Operative Portal v5.3 Visual Document Editor</title>
 
   <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
@@ -651,6 +651,23 @@ window.addEventListener("load", function () {
     .processing-close.show{display:block}
     @keyframes processingPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.84);opacity:.72}}
 
+  
+
+    /* v5.3 Visual Document Editor */
+    .visual-editor-card{max-width:1180px!important;width:min(96vw,1180px)!important;padding:18px!important}
+    .visual-editor-toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:12px 0}
+    .visual-document-scroll{background:#dfe5e9;border:1px solid #c7d0d6;border-radius:16px;overflow:auto;max-height:72vh;padding:16px;-webkit-overflow-scrolling:touch}
+    .visual-document-page{position:relative;margin:0 auto;background:#fff;box-shadow:0 8px 30px rgba(20,35,45,.2);transform-origin:top center}
+    .visual-document-page canvas{display:block;width:100%;height:auto}
+    .visual-field{position:absolute;z-index:4;border:2px solid rgba(18,184,212,.72);background:rgba(255,255,255,.58);border-radius:4px;min-width:18px;min-height:18px;display:flex;align-items:stretch;box-sizing:border-box}
+    .visual-field:focus-within,.visual-field:hover{border-color:#0797b3;background:rgba(255,255,255,.88);box-shadow:0 0 0 3px rgba(18,184,212,.18)}
+    .visual-field input,.visual-field textarea,.visual-field select{width:100%;height:100%;min-height:18px;border:0!important;border-radius:2px!important;background:transparent!important;padding:2px 4px!important;font-size:clamp(9px,1.35vw,16px)!important;line-height:1.05!important;box-shadow:none!important;color:#111!important;font-weight:700;box-sizing:border-box}
+    .visual-field textarea{resize:none;overflow:auto}
+    .visual-field select{appearance:auto}
+    .visual-field-check{cursor:pointer;justify-content:center;align-items:center;font-size:18px;font-weight:900;color:#0797b3}
+    .visual-editor-hint{font-size:13px;color:#52606a;margin:0}.visual-zoom-label{font-weight:900;color:#25313b;min-width:52px;text-align:center}
+    @media(max-width:720px){.visual-editor-card{width:100vw!important;max-width:none!important;height:100vh;max-height:none!important;border-radius:0!important}.visual-document-scroll{max-height:68vh;padding:8px}.visual-field{border-width:1.5px}.visual-editor-toolbar .button{padding:9px 11px;font-size:12px}}
+
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1131,17 +1148,22 @@ window.addEventListener("load", function () {
 
 
     <div id="mappedCertificateModal" class="admin-modal hidden">
-      <div class="admin-modal-card" style="max-width:760px;">
+      <div class="admin-modal-card visual-editor-card">
         <button class="modal-close" type="button" onclick="closeMappedCertificate()">×</button>
-        <div class="job-header"><div><h2 id="mappedCertificateTitle">Complete Certificate</h2><p id="mappedCertificateIntro">Enter the certificate details below.</p></div><span class="pill">Autosaved to job copy</span></div>
+        <div class="job-header"><div><h2 id="mappedCertificateTitle">Edit Document</h2><p id="mappedCertificateIntro">Tap the highlighted boxes and type directly onto the original document.</p></div><span class="pill">Visual editor</span></div>
         <div id="mappedCertificateMessage"></div>
-        <div id="mappedCertificateProgress" class="smart-workflow-hero" style="margin-top:14px;"></div>
-        <div id="mappedCertificateSectionTabs" class="mapped-section-tabs"></div>
-        <div id="mappedCertificateFields" class="creator-grid" style="margin-top:14px;"></div>
+        <div class="visual-editor-toolbar">
+          <p class="visual-editor-hint">The original document stays visible. Existing text, X marks and instructions are not changed.</p>
+          <div style="display:flex;gap:7px;align-items:center;"><button class="button secondary" type="button" onclick="changeVisualZoom(-10)">−</button><span id="visualZoomLabel" class="visual-zoom-label">100%</span><button class="button secondary" type="button" onclick="changeVisualZoom(10)">+</button></div>
+        </div>
+        <div id="visualDocumentScroll" class="visual-document-scroll">
+          <div id="visualDocumentPage" class="visual-document-page">
+            <canvas id="visualDocumentCanvas"></canvas>
+            <div id="visualFieldLayer"></div>
+          </div>
+        </div>
         <div class="mapped-certificate-actions">
-          <button id="mappedPreviousButton" class="button secondary" type="button" onclick="changeMappedCertificateSection(-1)">Previous</button>
           <button id="mappedDraftButton" class="button secondary" type="button" onclick="saveMappedCertificateProgress()">Save Progress</button>
-          <button id="mappedNextButton" class="button" type="button" onclick="changeMappedCertificateSection(1)">Next</button>
           <button id="saveMappedCertificateButton" class="button" type="button" onclick="submitMappedCertificate()">Complete &amp; Generate PDF</button>
         </div>
       </div>
@@ -4029,6 +4051,9 @@ window.addEventListener("load", function () {
     }
 
 
+    let visualPdfDocument = null;
+    let visualZoom = 100;
+
     async function openMappedCertificate(documentIndex) {
       if (!selectedJob || !currentOperative) return;
       const doc = (selectedJob.documents || [])[documentIndex];
@@ -4036,112 +4061,108 @@ window.addEventListener("load", function () {
       const modal = document.getElementById("mappedCertificateModal");
       const message = document.getElementById("mappedCertificateMessage");
       modal.classList.remove("hidden");
-      message.innerHTML = '<div class="section-intro">Loading editable work pack...</div>';
-      document.getElementById("mappedCertificateFields").innerHTML = "";
-      document.getElementById("mappedCertificateSectionTabs").innerHTML = "";
-      document.getElementById("mappedCertificateProgress").innerHTML = "";
+      message.innerHTML = '<div class="section-intro">Preparing the original document...</div>';
+      document.getElementById("visualFieldLayer").innerHTML = "";
+      const canvas = document.getElementById("visualDocumentCanvas");
+      canvas.width = 1; canvas.height = 1;
       try {
         const data = await apiPost({ action:"getMappedCertificate", name:currentOperative.name, folderId:selectedJob.folderId, documentId:doc.id });
         currentMappedCertificate = Object.assign({}, data, { documentIndex:documentIndex });
-        currentMappedCertificateSection = 0;
         document.getElementById("mappedCertificateTitle").textContent = `${data.formId} — ${data.title}`;
-        document.getElementById("mappedCertificateIntro").textContent = `${selectedJob.jobName} • ${data.version || "Current version"}`;
-        renderMappedCertificateSection();
+        document.getElementById("mappedCertificateIntro").textContent = `${selectedJob.jobName} • Tap a highlighted box to enter text, dates or Yes / No / N/A.`;
+        visualZoom = window.innerWidth < 720 ? 115 : 100;
+        await renderVisualDocument();
         message.innerHTML = "";
       } catch (error) {
         message.innerHTML = `<div class="error">${safeText(error.message)}</div>`;
       }
     }
 
-    function getMappedCertificateSections() {
-      if (!currentMappedCertificate) return [];
-      const sections = Array.isArray(currentMappedCertificate.sections) && currentMappedCertificate.sections.length
-        ? currentMappedCertificate.sections
-        : [{ id:"section_0", title:(currentMappedCertificate.fields && currentMappedCertificate.fields[0] && currentMappedCertificate.fields[0].sheet) || "Form" }];
-      return sections;
+    async function renderVisualDocument() {
+      if (!currentMappedCertificate || !window.pdfjsLib) throw new Error("The PDF viewer library has not loaded");
+      const binary = atob(currentMappedCertificate.previewPdfBase64 || "");
+      const bytes = new Uint8Array(binary.length);
+      for (let i=0;i<binary.length;i++) bytes[i] = binary.charCodeAt(i);
+      visualPdfDocument = await window.pdfjsLib.getDocument({data:bytes}).promise;
+      const page = await visualPdfDocument.getPage(1);
+      const baseViewport = page.getViewport({scale:1.5});
+      const canvas = document.getElementById("visualDocumentCanvas");
+      canvas.width = Math.ceil(baseViewport.width);
+      canvas.height = Math.ceil(baseViewport.height);
+      await page.render({canvasContext:canvas.getContext("2d",{alpha:false}),viewport:baseViewport,background:"#fff"}).promise;
+      const pageEl = document.getElementById("visualDocumentPage");
+      pageEl.style.width = canvas.width + "px";
+      pageEl.style.height = canvas.height + "px";
+      renderVisualFieldLayer();
+      applyVisualZoom();
     }
 
-    function mappedFieldValue(field) {
-      const element = document.querySelector(`[data-mapped-field="${field.id}"]`);
-      if (!element) return field.value === undefined || field.value === null ? "" : field.value;
-      return field.type === "checkbox" ? Boolean(element.checked) : String(element.value || "").trim();
+    function renderVisualFieldLayer() {
+      const layer = document.getElementById("visualFieldLayer");
+      const canvas = document.getElementById("visualDocumentCanvas");
+      layer.innerHTML = (currentMappedCertificate.fields || []).map(field => {
+        const g = field.visual || {x:0,y:0,width:.1,height:.03};
+        const left = Math.max(0,Math.min(99,g.x*100));
+        const top = Math.max(0,Math.min(99,g.y*100));
+        const width = Math.max(2,Math.min(100-left,g.width*100));
+        const height = Math.max(1.7,Math.min(100-top,g.height*100));
+        const value = field.value === undefined || field.value === null ? "" : field.value;
+        let control = "";
+        if (field.type === "select") {
+          const opts = (field.options && field.options.length ? field.options : ["Yes","No","N/A"]);
+          control = `<select data-mapped-field="${safeText(field.id)}" aria-label="${safeText(field.label)}"><option value=""></option>${opts.map(o=>`<option value="${safeText(o)}" ${String(o)===String(value)?"selected":""}>${safeText(o)}</option>`).join("")}</select>`;
+        } else if (field.type === "checkbox") {
+          const checked = value === true || /^(yes|true|x|✓)$/i.test(String(value));
+          control = `<button type="button" class="visual-checkbox-button" data-mapped-field="${safeText(field.id)}" data-checked="${checked?"true":"false"}" onclick="toggleVisualCheckbox(this)" style="width:100%;height:100%;border:0;background:transparent;font-size:18px;font-weight:900;color:#0797b3;">${checked?"X":""}</button>`;
+        } else if (field.type === "textarea") {
+          control = `<textarea data-mapped-field="${safeText(field.id)}" aria-label="${safeText(field.label)}" placeholder="Tap to enter">${safeText(value)}</textarea>`;
+        } else {
+          const type = ["date","time","number"].includes(field.type) ? field.type : "text";
+          control = `<input data-mapped-field="${safeText(field.id)}" aria-label="${safeText(field.label)}" type="${type}" value="${safeText(value)}" placeholder="Tap to enter">`;
+        }
+        return `<div class="visual-field" title="${safeText(field.label)} • ${safeText(field.cell)}" style="left:${left}%;top:${top}%;width:${width}%;height:${height}%;">${control}</div>`;
+      }).join("");
+      layer.style.position="absolute"; layer.style.inset="0"; layer.style.width=canvas.width+"px"; layer.style.height=canvas.height+"px";
+    }
+
+    function toggleVisualCheckbox(button) {
+      const checked = button.dataset.checked !== "true";
+      button.dataset.checked = checked ? "true" : "false";
+      button.textContent = checked ? "X" : "";
+    }
+
+    function changeVisualZoom(amount) {
+      visualZoom = Math.max(60,Math.min(220,visualZoom + Number(amount||0)));
+      applyVisualZoom();
+    }
+
+    function applyVisualZoom() {
+      const page = document.getElementById("visualDocumentPage");
+      page.style.transform = `scale(${visualZoom/100})`;
+      page.style.marginBottom = ((visualZoom/100)-1) * page.offsetHeight + "px";
+      document.getElementById("visualZoomLabel").textContent = visualZoom + "%";
     }
 
     function storeVisibleMappedValues() {
       if (!currentMappedCertificate) return;
       (currentMappedCertificate.fields || []).forEach(field => {
         const element = document.querySelector(`[data-mapped-field="${field.id}"]`);
-        if (element) field.value = field.type === "checkbox" ? Boolean(element.checked) : element.value;
+        if (!element) return;
+        if (element.classList && element.classList.contains("visual-checkbox-button")) field.value = element.dataset.checked === "true";
+        else field.value = element.value;
       });
     }
 
     function isMappedFieldComplete(field) {
-      const value = field.value;
-      if (field.type === "checkbox") return value === true || String(value).toUpperCase() === "YES";
-      return String(value === undefined || value === null ? "" : value).trim() !== "";
-    }
-
-    function renderMappedCertificateSection() {
-      if (!currentMappedCertificate) return;
-      storeVisibleMappedValues();
-      const sections = getMappedCertificateSections();
-      currentMappedCertificateSection = Math.max(0, Math.min(currentMappedCertificateSection, sections.length - 1));
-      const currentSection = sections[currentMappedCertificateSection];
-      const sectionFields = (currentMappedCertificate.fields || []).filter(field => field.sheet === currentSection.title);
-      const requiredFields = (currentMappedCertificate.fields || []).filter(field => field.required);
-      const completedRequired = requiredFields.filter(isMappedFieldComplete).length;
-      const percent = requiredFields.length ? Math.round((completedRequired / requiredFields.length) * 100) : 100;
-
-      document.getElementById("mappedCertificateProgress").innerHTML = `
-        <div class="smart-workflow-label">Editable Work Pack</div>
-        <div class="smart-workflow-next">${safeText(currentSection.title)}</div>
-        <div class="smart-workflow-description">Section ${currentMappedCertificateSection + 1} of ${sections.length} • ${completedRequired} of ${requiredFields.length} required fields complete</div>
-        <div class="smart-progress-track"><div class="smart-progress-fill" style="width:${percent}%"></div></div>`;
-
-      document.getElementById("mappedCertificateSectionTabs").innerHTML = sections.map((section, index) => {
-        const fields = (currentMappedCertificate.fields || []).filter(field => field.sheet === section.title && field.required);
-        const complete = fields.length && fields.every(isMappedFieldComplete);
-        return `<button type="button" class="mapped-section-tab ${index === currentMappedCertificateSection ? "active" : ""} ${complete ? "complete" : ""}" onclick="goToMappedCertificateSection(${index})">${complete ? "✓ " : ""}${safeText(section.title)}</button>`;
-      }).join("");
-
-      document.getElementById("mappedCertificateFields").innerHTML = sectionFields.length
-        ? sectionFields.map(field => renderMappedCertificateField(field)).join("")
-        : '<div class="section-intro">No editable fields have been mapped for this worksheet.</div>';
-
-      document.getElementById("mappedPreviousButton").disabled = currentMappedCertificateSection === 0;
-      document.getElementById("mappedNextButton").disabled = currentMappedCertificateSection >= sections.length - 1;
-    }
-
-    function goToMappedCertificateSection(index) {
-      storeVisibleMappedValues();
-      currentMappedCertificateSection = Number(index) || 0;
-      renderMappedCertificateSection();
-    }
-
-    function changeMappedCertificateSection(direction) {
-      storeVisibleMappedValues();
-      currentMappedCertificateSection += Number(direction) || 0;
-      renderMappedCertificateSection();
-    }
-
-    function renderMappedCertificateField(field) {
-      const id = `mapped_${safeText(field.id)}`;
-      const required = field.required ? "required" : "";
-      const requiredMark = field.required ? " *" : "";
-      const value = safeText(field.value || "");
-      let control = "";
-      if (field.type === "textarea") control = `<textarea id="${id}" data-mapped-field="${safeText(field.id)}" ${required} placeholder="${safeText(field.placeholder || "")}">${value}</textarea>`;
-      else if (field.type === "select") control = `<select id="${id}" data-mapped-field="${safeText(field.id)}" ${required}><option value="">Select...</option>${(field.options || []).map(option => `<option value="${safeText(option)}" ${String(option)===String(field.value)?"selected":""}>${safeText(option)}</option>`).join("")}</select>`;
-      else if (field.type === "checkbox") control = `<label class="form-choice"><input id="${id}" data-mapped-field="${safeText(field.id)}" type="checkbox" ${field.value === true || String(field.value).toUpperCase()==="YES"?"checked":""}><div><strong>Confirm</strong></div></label>`;
-      else control = `<input id="${id}" data-mapped-field="${safeText(field.id)}" type="${["number","date","time"].includes(field.type)?field.type:"text"}" value="${value}" ${required} placeholder="${safeText(field.placeholder || "")}">`;
-      return `<div class="creator-section"><label for="${id}">${safeText(field.label)}${requiredMark}</label>${control}<div class="mapped-field-sheet">${safeText(field.sheet)} • Cell ${safeText(field.cell)}</div></div>`;
+      if (field.type === "checkbox") return field.value === true || /^(yes|true|x|✓)$/i.test(String(field.value||""));
+      return String(field.value === undefined || field.value === null ? "" : field.value).trim() !== "";
     }
 
     function closeMappedCertificate() {
       storeVisibleMappedValues();
       document.getElementById("mappedCertificateModal").classList.add("hidden");
       currentMappedCertificate = null;
-      currentMappedCertificateSection = 0;
+      visualPdfDocument = null;
     }
 
     function collectMappedCertificateValues(validateRequired) {
@@ -4153,7 +4174,7 @@ window.addEventListener("load", function () {
         values[field.id] = value;
         if (validateRequired && !missingField && field.required && !isMappedFieldComplete(field)) missingField = field;
       });
-      return { values, missingField };
+      return {values,missingField};
     }
 
     async function saveMappedCertificateProgress() {
@@ -4162,14 +4183,12 @@ window.addEventListener("load", function () {
       const message = document.getElementById("mappedCertificateMessage");
       const collected = collectMappedCertificateValues(false);
       button.disabled = true;
-      message.innerHTML = '<div class="section-intro">Saving your progress...</div>';
+      message.innerHTML = '<div class="section-intro">Saving entries into the document...</div>';
       try {
-        const result = await apiPost({ action:"saveMappedCertificate", mode:"DRAFT", name:currentOperative.name, jobName:selectedJob.jobName, folderId:selectedJob.folderId, documentId:currentMappedCertificate.documentId, values:collected.values });
+        const result = await apiPost({action:"saveMappedCertificate",mode:"DRAFT",name:currentOperative.name,jobName:selectedJob.jobName,folderId:selectedJob.folderId,documentId:currentMappedCertificate.documentId,values:collected.values});
         message.innerHTML = `<div class="success">Progress saved at ${safeText(result.savedAt)}.</div>`;
-        renderMappedCertificateSection();
-      } catch (error) {
-        message.innerHTML = `<div class="error">${safeText(error.message)}</div>`;
-      } finally { button.disabled = false; }
+      } catch(error) { message.innerHTML = `<div class="error">${safeText(error.message)}</div>`; }
+      finally { button.disabled=false; }
     }
 
     async function submitMappedCertificate() {
@@ -4178,23 +4197,19 @@ window.addEventListener("load", function () {
       const message = document.getElementById("mappedCertificateMessage");
       const collected = collectMappedCertificateValues(true);
       if (collected.missingField) {
-        const sections = getMappedCertificateSections();
-        const sectionIndex = sections.findIndex(section => section.title === collected.missingField.sheet);
-        if (sectionIndex >= 0) currentMappedCertificateSection = sectionIndex;
-        renderMappedCertificateSection();
-        message.innerHTML = `<div class="error">${safeText(collected.missingField.label)} is required.</div>`;
+        message.innerHTML = `<div class="error">Please complete ${safeText(collected.missingField.label)}.</div>`;
+        const target = document.querySelector(`[data-mapped-field="${collected.missingField.id}"]`);
+        if (target) { target.scrollIntoView({behavior:"smooth",block:"center"}); target.focus && target.focus(); }
         return;
       }
-      button.disabled = true;
-      message.innerHTML = '<div class="section-intro">Updating every worksheet and creating the completed PDF...</div>';
+      button.disabled=true;
+      message.innerHTML='<div class="section-intro">Writing onto the original document and generating the completed PDF...</div>';
       try {
-        const result = await apiPost({ action:"saveMappedCertificate", mode:"FINAL", name:currentOperative.name, jobName:selectedJob.jobName, folderId:selectedJob.folderId, documentId:currentMappedCertificate.documentId, values:collected.values });
-        message.innerHTML = `<div class="success">Work pack completed at ${safeText(result.savedAt)}.<br><br><a href="${safeText(result.pdfUrl)}" target="_blank" rel="noopener" style="font-weight:900;">Open completed PDF</a></div>`;
-        await ensureSelectedJobDocumentsLoaded(true);
-        renderDocuments();
-      } catch (error) {
-        message.innerHTML = `<div class="error">${safeText(error.message)}</div>`;
-      } finally { button.disabled = false; }
+        const result=await apiPost({action:"saveMappedCertificate",mode:"FINAL",name:currentOperative.name,jobName:selectedJob.jobName,folderId:selectedJob.folderId,documentId:currentMappedCertificate.documentId,values:collected.values});
+        message.innerHTML=`<div class="success">Document completed at ${safeText(result.savedAt)}.<br><br><a href="${safeText(result.pdfUrl)}" target="_blank" rel="noopener" style="font-weight:900;">Open completed PDF</a></div>`;
+        await ensureSelectedJobDocumentsLoaded(true); renderDocuments();
+      } catch(error) { message.innerHTML=`<div class="error">${safeText(error.message)}</div>`; }
+      finally { button.disabled=false; }
     }
 
     function renderDocuments() {
