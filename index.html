@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ManPowerConnections | Operative Portal v5.0 Automatic Document Work Packs</title>
+  <title>ManPowerConnections | Operative Portal v5.1 Smart Automatic Mapping</title>
 
   <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
@@ -1033,9 +1033,9 @@ window.addEventListener("load", function () {
             </div>
             <label for="templateFile">Template File</label><input id="templateFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx">
             <div id="certificateMappingPanel">
-              <label for="templateMapping">Certificate Field Mapping</label>
-              <textarea id="templateMapping" rows="9" placeholder="Site Address|Work Instruction|B7|textarea|yes|Enter site address&#10;Permit Number|Schedule 1|C12|text|yes|Enter permit number&#10;Weather suitable?|POWRA|F18|select|yes|Choose...|Yes,No,N/A&#10;Completion Date|Schedule 2|F24|date|yes"></textarea>
-              <div class="small-note">Recommended format: Label | Worksheet name | Cell | Type | Required | Placeholder | Select choices. The older single-sheet format still works. Types: text, number, date, time, textarea, checkbox or select.</div>
+              <label for="templateMapping">Certificate Field Mapping <span class="pill" style="margin-left:6px;">Optional</span></label>
+              <textarea id="templateMapping" rows="6" placeholder="Leave this blank for Smart Automatic Mapping. Only enter mappings here when you need to override the automatic results."></textarea>
+              <div class="small-note"><strong>Recommended:</strong> leave this section blank. The hub will scan every worksheet, identify likely entry boxes, detect dates, numbers, dropdowns and checkboxes, then create the editable fields automatically. Manual format remains available as: Label | Worksheet | Cell | Type | Required | Placeholder | Choices.</div>
             </div>
             <button id="uploadTemplateButton" class="button" type="button" onclick="uploadNewFormTemplate()">Upload to Template Library</button>
             <div id="templateUploadMessage"></div>
@@ -1519,7 +1519,7 @@ window.addEventListener("load", function () {
       }
 
       button.disabled = true;
-      message.innerHTML = '<div class="section-intro">Uploading template to the library...</div>';
+      message.innerHTML = mappingText ? '<div class="section-intro">Uploading template using your manual mappings...</div>' : '<div class="section-intro">Uploading and scanning every worksheet for editable fields...</div>';
       try {
         const base64 = await fileToBase64(file);
         const result = await apiPost({
