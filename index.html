@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ManPowerConnections | Operative Portal v4.3 Template Dashboard</title>
+  <title>ManPowerConnections | Operative Portal v4.4 Mapped Certificates</title>
 
   <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
@@ -1017,9 +1017,14 @@ window.addEventListener("load", function () {
             </div>
             <div class="creator-two">
               <div><label for="templateVersion">Issue / Version</label><input id="templateVersion" type="text" placeholder="e.g. Issue 3 - July 2026"></div>
-              <div><label for="templateType">Template Behaviour</label><select id="templateType"><option value="EDITABLE_DOCUMENT">Editable job document</option><option value="READ_SIGN">Read and sign</option><option value="REFERENCE">Reference document</option><option value="DRAWING">Drawing / markup</option></select></div>
+              <div><label for="templateType">Template Behaviour</label><select id="templateType"><option value="MAPPED_CERTIFICATE">Editable certificate (completed in hub)</option><option value="EDITABLE_DOCUMENT">Editable Drive document (Google sign-in needed)</option><option value="READ_SIGN">Read and sign</option><option value="REFERENCE">Reference document</option><option value="DRAWING">Drawing / markup</option></select></div>
             </div>
             <label for="templateFile">Template File</label><input id="templateFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx">
+            <div id="certificateMappingPanel">
+              <label for="templateMapping">Certificate Field Mapping</label>
+              <textarea id="templateMapping" rows="7" placeholder="Certificate Number|B4|text|yes|Enter certificate number&#10;Site Address|B7|textarea|yes|Enter site address&#10;Test Reading|C15|number|yes|Enter reading&#10;Completion Date|F24|date|yes"></textarea>
+              <div class="small-note">One field per line: Label | Excel cell | Type | Required. Types: text, number, date, time, textarea, checkbox or select. For a select field, add comma-separated choices as the sixth item.</div>
+            </div>
             <button id="uploadTemplateButton" class="button" type="button" onclick="uploadNewFormTemplate()">Upload to Template Library</button>
             <div id="templateUploadMessage"></div>
           </div>
@@ -1033,7 +1038,7 @@ window.addEventListener("load", function () {
       <div id="adminCreatorSection" class="panel hidden" style="margin-top:16px;">
         <div class="job-header">
           <div><h2 style="margin-bottom:4px;">Office Job Creator</h2><p style="margin:0;">Assign work, choose required forms and upload the job pack in one place.</p></div>
-          <span class="pill">Version 4.3</span>
+          <span class="pill">Version 4.4</span>
         </div>
         <div id="jobCreatorMessage"></div>
         <div class="creator-grid">
@@ -1049,7 +1054,7 @@ window.addEventListener("load", function () {
             <label for="creatorNotes">Job Instructions / Notes</label><textarea id="creatorNotes" placeholder="Access details, contact details, scope of works or special instructions"></textarea>
           </div>
           <div class="creator-section creator-wide">
-            <h3>3. Required Job Forms</h3><p>Select the live forms or uploaded templates required for this job. A fresh copy of each uploaded template will be placed in the job&apos;s Forms folder.</p>
+            <h3>3. Required Job Forms</h3><p>Select the live forms or uploaded templates required for this job. A fresh job-specific copy is created. Mapped certificates are completed inside the hub and exported as PDF.</p>
             <div id="creatorForms" class="form-choice-grid"><div class="small-note">Loading available forms...</div></div>
           </div>
           <div class="creator-section">
@@ -1070,6 +1075,17 @@ window.addEventListener("load", function () {
       </div>
       </div>
     </section>
+
+
+    <div id="mappedCertificateModal" class="admin-modal hidden">
+      <div class="admin-modal-card" style="max-width:760px;">
+        <button class="modal-close" type="button" onclick="closeMappedCertificate()">×</button>
+        <div class="job-header"><div><h2 id="mappedCertificateTitle">Complete Certificate</h2><p id="mappedCertificateIntro">Enter the certificate details below.</p></div><span class="pill">Autosaved to job copy</span></div>
+        <div id="mappedCertificateMessage"></div>
+        <div id="mappedCertificateFields" class="creator-grid" style="margin-top:14px;"></div>
+        <button id="saveMappedCertificateButton" class="button" type="button" onclick="submitMappedCertificate()">Generate Completed Certificate</button>
+      </div>
+    </div>
 
     <div id="adminJobModal" class="admin-modal hidden">
       <div class="admin-modal-card">
@@ -1127,6 +1143,7 @@ window.addEventListener("load", function () {
     let delayActionInProgress = false;
     let formTemplates = [];
     let currentLiveFormSourceDocument = null;
+    let currentMappedCertificate = null;
     let currentDocumentGate = {
       complete: false,
       documents: [],
@@ -1413,7 +1430,7 @@ window.addEventListener("load", function () {
         select.innerHTML = '<option value="">Select operative...</option>' + (data.operatives || []).map(op => `<option value="${safeText(op.name)}">${safeText(op.name)}${op.vehicle ? " — " + safeText(op.vehicle) : ""}</option>`).join("");
         if (existing) select.value = existing;
         document.getElementById("creatorForms").innerHTML = (data.templates || []).map(template => {
-          const typeLabels = { LIVE_FORM:"Live digital form", EDITABLE_DOCUMENT:"Editable template", READ_SIGN:"Read and sign", REFERENCE:"Reference document", DRAWING:"Drawing / markup" };
+          const typeLabels = { LIVE_FORM:"Live digital form", MAPPED_CERTIFICATE:"Editable certificate", EDITABLE_DOCUMENT:"Editable Drive template", READ_SIGN:"Read and sign", REFERENCE:"Reference document", DRAWING:"Drawing / markup" };
           const typeLabel = typeLabels[String(template.templateType || "LIVE_FORM").toUpperCase()] || "Job template";
           return `<label class="form-choice"><input type="checkbox" name="creatorForm" value="${safeText(template.formId)}"><div><strong>${safeText(template.formId)} — ${safeText(template.title)}</strong><span>${safeText(template.version || "Current version")} • ${safeText(typeLabel)}</span></div></label>`;
         }).join("") || '<div class="small-note">No active form templates were found.</div>';
@@ -1425,7 +1442,7 @@ window.addEventListener("load", function () {
     function renderTemplateLibrary(templates) {
       const target = document.getElementById("templateLibraryList");
       if (!target) return;
-      const typeLabels = { LIVE_FORM:"Live digital form", EDITABLE_DOCUMENT:"Editable template", READ_SIGN:"Read and sign", REFERENCE:"Reference document", DRAWING:"Drawing / markup" };
+      const typeLabels = { LIVE_FORM:"Live digital form", MAPPED_CERTIFICATE:"Editable certificate", EDITABLE_DOCUMENT:"Editable Drive template", READ_SIGN:"Read and sign", REFERENCE:"Reference document", DRAWING:"Drawing / markup" };
       target.innerHTML = (templates || []).map(template => {
         const type = String(template.templateType || "LIVE_FORM").toUpperCase();
         return `<div class="form-choice"><div><strong>${safeText(template.formId)} — ${safeText(template.title)}</strong><span>${safeText(template.version || "Current version")} • ${safeText(typeLabels[type] || "Job template")}</span></div></div>`;
@@ -1450,6 +1467,7 @@ window.addEventListener("load", function () {
       const title = document.getElementById("templateTitle").value.trim();
       const version = document.getElementById("templateVersion").value.trim();
       const templateType = document.getElementById("templateType").value;
+      const mappingText = document.getElementById("templateMapping").value.trim();
       const file = (document.getElementById("templateFile").files || [])[0];
       const message = document.getElementById("templateUploadMessage");
       const button = document.getElementById("uploadTemplateButton");
@@ -1475,6 +1493,7 @@ window.addEventListener("load", function () {
           title,
           version,
           templateType,
+          mappingText,
           fileName:file.name,
           mimeType:file.type || "application/octet-stream",
           base64
@@ -1484,6 +1503,7 @@ window.addEventListener("load", function () {
         document.getElementById("templateTitle").value = "";
         document.getElementById("templateVersion").value = "";
         document.getElementById("templateFile").value = "";
+        document.getElementById("templateMapping").value = "";
         await loadTemplateLibraryData();
       } catch (error) {
         message.innerHTML = `<div class="error">${safeText(error.message)}</div>`;
@@ -3825,6 +3845,71 @@ window.addEventListener("load", function () {
       openLiveForm(formId);
     }
 
+
+    async function openMappedCertificate(documentIndex) {
+      if (!selectedJob || !currentOperative) return;
+      const doc = (selectedJob.documents || [])[documentIndex];
+      if (!doc) return;
+      const modal = document.getElementById("mappedCertificateModal");
+      const message = document.getElementById("mappedCertificateMessage");
+      modal.classList.remove("hidden");
+      message.innerHTML = '<div class="section-intro">Loading certificate fields...</div>';
+      document.getElementById("mappedCertificateFields").innerHTML = "";
+      try {
+        const data = await apiPost({ action:"getMappedCertificate", name:currentOperative.name, folderId:selectedJob.folderId, documentId:doc.id });
+        currentMappedCertificate = Object.assign({}, data, { documentIndex:documentIndex });
+        document.getElementById("mappedCertificateTitle").textContent = `${data.formId} — ${data.title}`;
+        document.getElementById("mappedCertificateIntro").textContent = `${selectedJob.jobName} • ${data.version || "Current version"}`;
+        document.getElementById("mappedCertificateFields").innerHTML = (data.fields || []).map(field => renderMappedCertificateField(field)).join("");
+        message.innerHTML = "";
+      } catch (error) {
+        message.innerHTML = `<div class="error">${safeText(error.message)}</div>`;
+      }
+    }
+
+    function renderMappedCertificateField(field) {
+      const id = `mapped_${safeText(field.id)}`;
+      const required = field.required ? "required" : "";
+      const requiredMark = field.required ? " *" : "";
+      const value = safeText(field.value || "");
+      let control = "";
+      if (field.type === "textarea") control = `<textarea id="${id}" data-mapped-field="${safeText(field.id)}" ${required} placeholder="${safeText(field.placeholder || "")}">${value}</textarea>`;
+      else if (field.type === "select") control = `<select id="${id}" data-mapped-field="${safeText(field.id)}" ${required}><option value="">Select...</option>${(field.options || []).map(option => `<option value="${safeText(option)}" ${String(option)===String(field.value)?"selected":""}>${safeText(option)}</option>`).join("")}</select>`;
+      else if (field.type === "checkbox") control = `<label class="form-choice"><input id="${id}" data-mapped-field="${safeText(field.id)}" type="checkbox" ${String(field.value).toUpperCase()==="YES"?"checked":""}><div><strong>Confirm</strong></div></label>`;
+      else control = `<input id="${id}" data-mapped-field="${safeText(field.id)}" type="${["number","date","time"].includes(field.type)?field.type:"text"}" value="${value}" ${required} placeholder="${safeText(field.placeholder || "")}">`;
+      return `<div class="creator-section"><label for="${id}">${safeText(field.label)}${requiredMark}</label>${control}<div class="small-note">Certificate cell: ${safeText(field.cell)}</div></div>`;
+    }
+
+    function closeMappedCertificate() {
+      document.getElementById("mappedCertificateModal").classList.add("hidden");
+      currentMappedCertificate = null;
+    }
+
+    async function submitMappedCertificate() {
+      if (!currentMappedCertificate || !selectedJob || !currentOperative) return;
+      const button = document.getElementById("saveMappedCertificateButton");
+      const message = document.getElementById("mappedCertificateMessage");
+      const values = {};
+      let missing = "";
+      (currentMappedCertificate.fields || []).forEach(field => {
+        const element = document.querySelector(`[data-mapped-field="${field.id}"]`);
+        const value = field.type === "checkbox" ? Boolean(element && element.checked) : String(element ? element.value : "").trim();
+        values[field.id] = value;
+        if (!missing && field.required && (field.type !== "checkbox") && !String(value).trim()) missing = field.label;
+      });
+      if (missing) { message.innerHTML = `<div class="error">${safeText(missing)} is required.</div>`; return; }
+      button.disabled = true;
+      message.innerHTML = '<div class="section-intro">Updating the certificate and creating the PDF...</div>';
+      try {
+        const result = await apiPost({ action:"saveMappedCertificate", name:currentOperative.name, jobName:selectedJob.jobName, folderId:selectedJob.folderId, documentId:currentMappedCertificate.documentId, values:values });
+        message.innerHTML = `<div class="success">Certificate completed at ${safeText(result.savedAt)}.<br><br><a href="${safeText(result.pdfUrl)}" target="_blank" rel="noopener" style="font-weight:900;">Open completed PDF</a></div>`;
+        await ensureSelectedJobDocumentsLoaded(true);
+        renderDocuments();
+      } catch (error) {
+        message.innerHTML = `<div class="error">${safeText(error.message)}</div>`;
+      } finally { button.disabled = false; }
+    }
+
     function renderDocuments() {
       const list = document.getElementById("documentList");
       const intro = document.getElementById("documentsIntro");
@@ -3867,7 +3952,11 @@ window.addEventListener("load", function () {
             ` : ""}
 
             <div class="document-hub-actions">
-              <a class="button secondary" href="${safeText(doc.url)}" target="_blank" rel="noopener">View Document</a>
+              ${doc.mappedCertificate ? `
+                <button class="button" onclick="openMappedCertificate(${index})">✏️ Complete Certificate</button>
+              ` : `
+                <a class="button secondary" href="${safeText(doc.url)}" target="_blank" rel="noopener">View Document</a>
+              `}
 
               ${String(doc.type || "").toLowerCase().includes("pdf") ? `
                 <button class="button" onclick="openDrawingViewer(${index})">📐 Open Drawing Tool</button>
