@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ManPowerConnections | Operative Portal v4.2 Template Library</title>
+  <title>ManPowerConnections | Operative Portal v4.3 Template Dashboard</title>
 
   <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
@@ -970,6 +970,7 @@ window.addEventListener("load", function () {
           <button id="adminOverviewTab" class="active" onclick="showAdminSection('overview')">Live Overview</button>
           <button id="adminMapTab" onclick="showAdminSection('map')">Jobs Map</button>
           <button id="adminCreateTab" onclick="showAdminSection('creator')">Create New Job</button>
+          <button id="adminTemplatesTab" onclick="showAdminSection('templates')">Template Library</button>
         </div>
       </div>
 
@@ -1002,10 +1003,37 @@ window.addEventListener("load", function () {
         </div>
       </div>
 
+      <div id="adminTemplatesSection" class="panel hidden" style="margin-top:16px;">
+        <div class="job-header">
+          <div><h2 style="margin-bottom:4px;">Form Template Library</h2><p style="margin:0;">Upload and manage reusable Word, Excel and PDF templates separately from job creation.</p></div>
+          <span class="pill">No coding required</span>
+        </div>
+        <div class="creator-grid">
+          <div class="creator-section creator-wide">
+            <h3>Upload New Template</h3><p>The master file will remain in the library. A fresh copy is created whenever it is selected for a job.</p>
+            <div class="creator-two">
+              <div><label for="templateFormId">Form Code</label><input id="templateFormId" type="text" placeholder="e.g. QF28"></div>
+              <div><label for="templateTitle">Template Title</label><input id="templateTitle" type="text" placeholder="e.g. Live Working Assessment Pack"></div>
+            </div>
+            <div class="creator-two">
+              <div><label for="templateVersion">Issue / Version</label><input id="templateVersion" type="text" placeholder="e.g. Issue 3 - July 2026"></div>
+              <div><label for="templateType">Template Behaviour</label><select id="templateType"><option value="EDITABLE_DOCUMENT">Editable job document</option><option value="READ_SIGN">Read and sign</option><option value="REFERENCE">Reference document</option><option value="DRAWING">Drawing / markup</option></select></div>
+            </div>
+            <label for="templateFile">Template File</label><input id="templateFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx">
+            <button id="uploadTemplateButton" class="button" type="button" onclick="uploadNewFormTemplate()">Upload to Template Library</button>
+            <div id="templateUploadMessage"></div>
+          </div>
+          <div class="creator-section creator-wide">
+            <div class="job-header" style="margin-bottom:12px;"><div><h3 style="margin-bottom:4px;">Available Templates</h3><p style="margin:0;">These forms will appear automatically in the Create New Job screen.</p></div><button class="button secondary" style="width:auto;margin:0;" onclick="loadTemplateLibraryData()">Refresh</button></div>
+            <div id="templateLibraryList" class="form-choice-grid"><div class="small-note">Open this section to load the template library.</div></div>
+          </div>
+        </div>
+      </div>
+
       <div id="adminCreatorSection" class="panel hidden" style="margin-top:16px;">
         <div class="job-header">
-          <div><h2 style="margin-bottom:4px;">Office Job Creator</h2><p style="margin:0;">Assign work, create the Drive folders and upload the job pack in one place.</p></div>
-          <span class="pill">Version 4.2</span>
+          <div><h2 style="margin-bottom:4px;">Office Job Creator</h2><p style="margin:0;">Assign work, choose required forms and upload the job pack in one place.</p></div>
+          <span class="pill">Version 4.3</span>
         </div>
         <div id="jobCreatorMessage"></div>
         <div class="creator-grid">
@@ -1021,33 +1049,16 @@ window.addEventListener("load", function () {
             <label for="creatorNotes">Job Instructions / Notes</label><textarea id="creatorNotes" placeholder="Access details, contact details, scope of works or special instructions"></textarea>
           </div>
           <div class="creator-section creator-wide">
-            <div class="job-header" style="margin-bottom:14px;">
-              <div><h3 style="margin-bottom:4px;">3. Form Template Library</h3><p style="margin:0;">Upload a reusable Word, Excel or PDF template. It will immediately become available for future jobs.</p></div>
-              <span class="pill">No coding required</span>
-            </div>
-            <div class="creator-two">
-              <div><label for="templateFormId">Form Code</label><input id="templateFormId" type="text" placeholder="e.g. QF28"></div>
-              <div><label for="templateTitle">Template Title</label><input id="templateTitle" type="text" placeholder="e.g. Live Working Assessment Pack"></div>
-            </div>
-            <div class="creator-two">
-              <div><label for="templateVersion">Issue / Version</label><input id="templateVersion" type="text" placeholder="e.g. Issue 3 - July 2026"></div>
-              <div><label for="templateType">Template Behaviour</label><select id="templateType"><option value="EDITABLE_DOCUMENT">Editable job document</option><option value="READ_SIGN">Read and sign</option><option value="REFERENCE">Reference document</option><option value="DRAWING">Drawing / markup</option></select></div>
-            </div>
-            <label for="templateFile">Template File</label><input id="templateFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx">
-            <button id="uploadTemplateButton" class="button secondary" type="button" onclick="uploadNewFormTemplate()">Upload to Template Library</button>
-            <div id="templateUploadMessage"></div>
-          </div>
-          <div class="creator-section creator-wide">
-            <h3>4. Required Job Forms</h3><p>Select the live forms or uploaded templates required for this job. A fresh copy of each uploaded template will be placed in the job&apos;s Forms folder.</p>
+            <h3>3. Required Job Forms</h3><p>Select the live forms or uploaded templates required for this job. A fresh copy of each uploaded template will be placed in the job&apos;s Forms folder.</p>
             <div id="creatorForms" class="form-choice-grid"><div class="small-note">Loading available forms...</div></div>
           </div>
           <div class="creator-section">
-            <h3>5. Mandatory Documents</h3><p>These files must be read and acknowledged before work can start.</p>
+            <h3>4. Mandatory Documents</h3><p>These files must be read and acknowledged before work can start.</p>
             <label for="creatorRequiredFiles">RAMS / Work Instructions</label><input id="creatorRequiredFiles" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
             <div id="creatorRequiredSummary" class="upload-summary"></div>
           </div>
           <div class="creator-section">
-            <h3>6. Supporting Documents</h3><p>Drawings, permits, maps and other useful job-pack files.</p>
+            <h3>5. Supporting Documents</h3><p>Drawings, permits, maps and other useful job-pack files.</p>
             <label for="creatorSupportingFiles">Supporting Files</label><input id="creatorSupportingFiles" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
             <div id="creatorSupportingSummary" class="upload-summary"></div>
           </div>
@@ -1295,13 +1306,17 @@ window.addEventListener("load", function () {
       const overview = section === "overview";
       const map = section === "map";
       const creator = section === "creator";
+      const templates = section === "templates";
       document.getElementById("adminOverviewSection").classList.toggle("hidden", !overview);
       document.getElementById("adminMapSection").classList.toggle("hidden", !map);
       document.getElementById("adminCreatorSection").classList.toggle("hidden", !creator);
+      document.getElementById("adminTemplatesSection").classList.toggle("hidden", !templates);
       document.getElementById("adminOverviewTab").classList.toggle("active", overview);
       document.getElementById("adminMapTab").classList.toggle("active", map);
       document.getElementById("adminCreateTab").classList.toggle("active", creator);
+      document.getElementById("adminTemplatesTab").classList.toggle("active", templates);
       if (creator) loadJobCreatorData();
+      if (templates) loadTemplateLibraryData();
       if (map) {
         setTimeout(() => {
           if (adminJobsMap) adminJobsMap.invalidateSize();
@@ -1407,6 +1422,28 @@ window.addEventListener("load", function () {
       }
     }
 
+    function renderTemplateLibrary(templates) {
+      const target = document.getElementById("templateLibraryList");
+      if (!target) return;
+      const typeLabels = { LIVE_FORM:"Live digital form", EDITABLE_DOCUMENT:"Editable template", READ_SIGN:"Read and sign", REFERENCE:"Reference document", DRAWING:"Drawing / markup" };
+      target.innerHTML = (templates || []).map(template => {
+        const type = String(template.templateType || "LIVE_FORM").toUpperCase();
+        return `<div class="form-choice"><div><strong>${safeText(template.formId)} — ${safeText(template.title)}</strong><span>${safeText(template.version || "Current version")} • ${safeText(typeLabels[type] || "Job template")}</span></div></div>`;
+      }).join("") || '<div class="small-note">No active templates have been added yet.</div>';
+    }
+
+    async function loadTemplateLibraryData() {
+      if (!currentManager) return;
+      const target = document.getElementById("templateLibraryList");
+      if (target) target.innerHTML = '<div class="small-note">Loading template library...</div>';
+      try {
+        const data = await apiPost({ action:"getJobCreatorData", managerName:currentManager.name, token:currentManager.token });
+        renderTemplateLibrary(data.templates || []);
+      } catch (error) {
+        if (target) target.innerHTML = `<div class="error">${safeText(error.message)}</div>`;
+      }
+    }
+
     async function uploadNewFormTemplate() {
       if (!currentManager) return;
       const formId = document.getElementById("templateFormId").value.trim();
@@ -1442,12 +1479,12 @@ window.addEventListener("load", function () {
           mimeType:file.type || "application/octet-stream",
           base64
         });
-        message.innerHTML = `<div class="success">${safeText(result.message)}. It is now available in Required Job Forms below.</div>`;
+        message.innerHTML = `<div class="success">${safeText(result.message)}. It is now available when creating a new job.</div>`;
         document.getElementById("templateFormId").value = "";
         document.getElementById("templateTitle").value = "";
         document.getElementById("templateVersion").value = "";
         document.getElementById("templateFile").value = "";
-        await loadJobCreatorData();
+        await loadTemplateLibraryData();
       } catch (error) {
         message.innerHTML = `<div class="error">${safeText(error.message)}</div>`;
       } finally {
