@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ManPowerConnections | Operative Portal v5.1 Smart Automatic Mapping</title>
+  <title>ManPowerConnections | Operative Portal v5.2 Processing Manager</title>
 
   <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
@@ -625,12 +625,53 @@ window.addEventListener("load", function () {
     .map-popup-actions a { background:#263b49; }
     @media (max-width: 900px) { .admin-map-shell { grid-template-columns:1fr; } #adminJobsMap { min-height:430px; } .map-side-panel { max-height:none; } }
 
+
+
+    /* v5.2 reusable long-running operation overlay */
+    .processing-overlay{position:fixed;inset:0;z-index:100000;background:rgba(4,18,30,.86);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:20px}
+    .processing-overlay.active{display:flex}
+    .processing-card{width:min(620px,100%);background:#fff;border-radius:24px;padding:26px;box-shadow:0 28px 80px rgba(0,0,0,.35);max-height:92vh;overflow:auto}
+    .processing-icon{width:62px;height:62px;border-radius:18px;background:linear-gradient(135deg,var(--mpc-cyan),#087ca0);display:grid;place-items:center;font-size:30px;margin-bottom:16px;box-shadow:0 12px 28px rgba(18,184,212,.28)}
+    .processing-card h2{margin:0 0 5px;color:#102333}
+    .processing-file{font-weight:700;color:#52616d;overflow-wrap:anywhere;margin-bottom:18px}
+    .processing-progress-track{height:12px;border-radius:999px;background:#e8eef2;overflow:hidden;margin:12px 0 7px}
+    .processing-progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--mpc-cyan),#087ca0);border-radius:inherit;transition:width .45s ease}
+    .processing-progress-row{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:#60717e;margin-bottom:18px}
+    .processing-stages{display:grid;gap:10px;margin:0 0 18px}
+    .processing-stage{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:12px;background:#f4f7f9;color:#71808b}
+    .processing-stage .stage-dot{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#dfe7eb;font-size:13px;flex:0 0 24px}
+    .processing-stage.active{background:#eaf9fc;color:#0b7186;font-weight:700}
+    .processing-stage.active .stage-dot{background:var(--mpc-cyan);color:#fff;animation:processingPulse 1.2s infinite}
+    .processing-stage.done{color:#176b48;background:#edf9f3}
+    .processing-stage.done .stage-dot{background:#25a66a;color:#fff}
+    .processing-warning{font-size:13px;line-height:1.45;color:#6d5a25;background:#fff8df;border:1px solid #f2dfa1;border-radius:12px;padding:11px 13px}
+    .processing-result{display:none;margin-top:16px;padding:16px;border-radius:14px;background:#edf9f3;color:#176b48}
+    .processing-result.show{display:block}
+    .processing-close{display:none;width:100%;margin-top:14px}
+    .processing-close.show{display:block}
+    @keyframes processingPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.84);opacity:.72}}
+
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 
 <body>
+
+  <div id="processingOverlay" class="processing-overlay" role="dialog" aria-modal="true" aria-labelledby="processingTitle">
+    <div class="processing-card">
+      <div class="processing-icon">📄</div>
+      <h2 id="processingTitle">Processing Work Pack</h2>
+      <div id="processingFile" class="processing-file"></div>
+      <div class="processing-progress-track"><div id="processingProgressBar" class="processing-progress-bar"></div></div>
+      <div class="processing-progress-row"><span id="processingStatus">Preparing upload…</span><strong id="processingPercent">0%</strong></div>
+      <div id="processingStages" class="processing-stages"></div>
+      <div class="processing-warning">Please do not refresh, close this page or navigate away while processing. Large Excel work packs can take several minutes.</div>
+      <div id="processingResult" class="processing-result"></div>
+      <button id="processingClose" class="button processing-close" type="button" onclick="closeProcessingOverlay()">Return to Template Library</button>
+    </div>
+  </div>
+
   <div class="app-header">
     <div class="header-badge">Operative Portal</div>
     <h1>ManPowerConnections Portal</h1>
@@ -1498,6 +1539,107 @@ window.addEventListener("load", function () {
       }
     }
 
+
+    const PROCESSING_STAGES = [
+      { label:"Preparing and uploading workbook", percent:12 },
+      { label:"Converting Excel into an editable workbook", percent:30 },
+      { label:"Reading workbook worksheets", percent:48 },
+      { label:"Detecting editable fields", percent:68 },
+      { label:"Creating document templates", percent:84 },
+      { label:"Saving and finalising the work pack", percent:94 }
+    ];
+    let processingActive = false;
+    let processingStageIndex = 0;
+    let processingTimer = null;
+    let processingStartedAt = 0;
+
+    function renderProcessingStages() {
+      const holder = document.getElementById("processingStages");
+      if (!holder) return;
+      holder.innerHTML = PROCESSING_STAGES.map((stage,index) => `<div class="processing-stage" data-processing-stage="${index}"><span class="stage-dot">${index < processingStageIndex ? "✓" : index === processingStageIndex ? "…" : "○"}</span><span>${safeText(stage.label)}</span></div>`).join("");
+      holder.querySelectorAll(".processing-stage").forEach((row,index) => {
+        row.classList.toggle("done", index < processingStageIndex);
+        row.classList.toggle("active", index === processingStageIndex);
+      });
+    }
+
+    function setProcessingProgress(percent, status) {
+      const value = Math.max(0, Math.min(100, Number(percent) || 0));
+      document.getElementById("processingProgressBar").style.width = value + "%";
+      document.getElementById("processingPercent").textContent = Math.round(value) + "%";
+      if (status) document.getElementById("processingStatus").textContent = status;
+    }
+
+    function startProcessingOverlay(fileName) {
+      processingActive = true;
+      processingStageIndex = 0;
+      processingStartedAt = Date.now();
+      document.getElementById("processingFile").textContent = fileName || "Uploaded work pack";
+      document.getElementById("processingResult").classList.remove("show");
+      document.getElementById("processingResult").innerHTML = "";
+      document.getElementById("processingClose").classList.remove("show");
+      document.getElementById("processingOverlay").classList.add("active");
+      document.body.style.overflow = "hidden";
+      renderProcessingStages();
+      setProcessingProgress(5, PROCESSING_STAGES[0].label + "…");
+      clearInterval(processingTimer);
+      processingTimer = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - processingStartedAt) / 1000);
+        const thresholds = [3, 10, 20, 34, 50];
+        let nextIndex = 0;
+        thresholds.forEach((threshold,index) => { if (elapsed >= threshold) nextIndex = index + 1; });
+        processingStageIndex = Math.min(nextIndex, PROCESSING_STAGES.length - 1);
+        const stage = PROCESSING_STAGES[processingStageIndex];
+        const seconds = elapsed ? ` (${elapsed}s elapsed)` : "";
+        renderProcessingStages();
+        setProcessingProgress(stage.percent, stage.label + "…" + seconds);
+      }, 1000);
+    }
+
+    function completeProcessingOverlay(result) {
+      clearInterval(processingTimer);
+      processingTimer = null;
+      processingStageIndex = PROCESSING_STAGES.length;
+      renderProcessingStages();
+      setProcessingProgress(100, "Work pack ready");
+      const created = Number(result && result.created || 0);
+      const fields = Number(result && result.totalFields || 0);
+      const details = [created ? `<strong>${created}</strong> document templates created` : "Template uploaded successfully", fields ? `<strong>${fields}</strong> editable fields detected` : "", "Ready to assign to jobs"].filter(Boolean).join("<br>");
+      const resultBox = document.getElementById("processingResult");
+      resultBox.innerHTML = `<strong>✓ Work Pack Created Successfully</strong><div style="margin-top:8px;line-height:1.65;">${details}</div>`;
+      resultBox.classList.add("show");
+      document.getElementById("processingClose").classList.add("show");
+      processingActive = false;
+    }
+
+    function failProcessingOverlay(message) {
+      clearInterval(processingTimer);
+      processingTimer = null;
+      const resultBox = document.getElementById("processingResult");
+      resultBox.style.background = "#fff0f0";
+      resultBox.style.color = "#9b2525";
+      resultBox.innerHTML = `<strong>Upload could not be completed</strong><div style="margin-top:8px;">${safeText(message || "Unknown error")}</div>`;
+      resultBox.classList.add("show");
+      document.getElementById("processingClose").classList.add("show");
+      document.getElementById("processingStatus").textContent = "Processing stopped";
+      processingActive = false;
+    }
+
+    function closeProcessingOverlay() {
+      if (processingActive) return;
+      document.getElementById("processingOverlay").classList.remove("active");
+      document.body.style.overflow = "";
+      const resultBox = document.getElementById("processingResult");
+      resultBox.style.background = "";
+      resultBox.style.color = "";
+    }
+
+    window.addEventListener("beforeunload", function(event) {
+      if (!processingActive) return;
+      event.preventDefault();
+      event.returnValue = "Upload in progress. Leaving now may interrupt the work pack upload.";
+    });
+
     async function uploadNewFormTemplate() {
       if (!currentManager) return;
       const formId = document.getElementById("templateFormId").value.trim();
@@ -1519,9 +1661,11 @@ window.addEventListener("load", function () {
       }
 
       button.disabled = true;
-      message.innerHTML = mappingText ? '<div class="section-intro">Uploading template using your manual mappings...</div>' : '<div class="section-intro">Uploading and scanning every worksheet for editable fields...</div>';
+      message.innerHTML = '';
+      startProcessingOverlay(file.name);
       try {
         const base64 = await fileToBase64(file);
+        setProcessingProgress(14, "Workbook uploaded to the browser. Sending securely…");
         const result = await apiPost({
           action:"uploadFormTemplate",
           managerName:currentManager.name,
@@ -1536,6 +1680,7 @@ window.addEventListener("load", function () {
           base64
         });
         message.innerHTML = `<div class="success">${safeText(result.message)}. It is now available when creating a new job.</div>`;
+        completeProcessingOverlay(result);
         document.getElementById("templateFormId").value = "";
         document.getElementById("templateTitle").value = "";
         document.getElementById("templateVersion").value = "";
@@ -1544,6 +1689,7 @@ window.addEventListener("load", function () {
         await loadTemplateLibraryData();
       } catch (error) {
         message.innerHTML = `<div class="error">${safeText(error.message)}</div>`;
+        failProcessingOverlay(error.message);
       } finally {
         button.disabled = false;
       }
