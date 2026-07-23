@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ManPowerConnections | Operative Portal v8.0 Performance Edition</title>
+  <title>ManPowerConnections | Operative Portal v9.0 Compliance Document Workflow</title>
 
   <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
@@ -488,6 +488,17 @@ window.addEventListener("load", function () {
     .job-card-actions{display:grid;grid-template-columns:1fr auto;gap:9px;margin-top:15px}.job-card-actions .button{margin:0}.job-card-actions .button.secondary{width:48px;padding-left:0;padding-right:0}
     .timeline-card{margin-top:16px;padding:16px;border-radius:18px;background:#f8fbfc;border:1px solid #dce5ea}.timeline-title{font-size:14px;font-weight:900;color:var(--mpc-charcoal);margin-bottom:12px}.timeline-list{position:relative;margin-left:7px}.timeline-item{position:relative;padding:0 0 15px 27px}.timeline-item:not(:last-child)::before{content:"";position:absolute;left:6px;top:15px;bottom:-2px;width:2px;background:#cfe8ee}.timeline-dot{position:absolute;left:0;top:3px;width:14px;height:14px;border-radius:50%;background:var(--mpc-cyan);border:3px solid #e8f8fb}.timeline-item.complete .timeline-dot{background:var(--mpc-success)}.timeline-action{font-size:13px;font-weight:900;color:var(--mpc-charcoal)}.timeline-time{font-size:11px;font-weight:800;color:var(--mpc-slate);margin-top:2px}.timeline-empty{font-size:12px;color:var(--mpc-slate);font-weight:700}
     .photo-category-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0 14px}.photo-category-option input{display:none}.photo-category-option span{display:block;padding:12px 8px;border:2px solid #d9e2e8;border-radius:12px;text-align:center;background:#fff;color:var(--mpc-charcoal);font-size:12px;font-weight:900;cursor:pointer}.photo-category-option input:checked+span{border-color:var(--mpc-cyan);background:#e8f8fb;color:var(--mpc-cyan-dark)}
+
+    .compliance-gate{padding:18px;border:1px solid #cceef3;border-radius:18px;background:linear-gradient(135deg,#f2fcfe,#ffffff);margin-bottom:14px}
+    .compliance-gate h3{margin:0 0 6px;color:var(--mpc-charcoal)}
+    .compliance-gate p{margin:0;color:var(--mpc-slate);font-weight:700;font-size:13px}
+    .compliance-lock{padding:16px;border:1px dashed #f59e0b;border-radius:16px;background:#fffaf0;color:#92400e;font-weight:800;text-align:center;margin-top:12px}
+    .document-section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:18px 0 10px}
+    .document-section-title h3{margin:0;color:var(--mpc-charcoal)}
+    .completed-docs-panel{margin-top:18px;padding-top:14px;border-top:1px solid #dce5ea}
+    .completed-docs-panel summary{cursor:pointer;font-weight:900;color:var(--mpc-charcoal);padding:10px 0}
+    .mandatory-next{box-shadow:0 10px 26px rgba(18,184,212,.13);border-color:var(--mpc-cyan)!important}
+
     @media(min-width:700px){.operative-profile{grid-template-columns:58px minmax(0,1fr) minmax(280px,.7fr)}.profile-stats{grid-column:auto}.photo-category-grid{grid-template-columns:repeat(5,1fr)}}
 
 
@@ -1043,7 +1054,6 @@ window.addEventListener("load", function () {
           <button id="adminMapTab" onclick="showAdminSection('map')">Jobs Map</button>
           <button id="adminCreateTab" onclick="showAdminSection('creator')">Create New Job</button>
           <button id="adminJobDocumentsTab" onclick="showAdminSection('jobDocuments')">Job Documents</button>
-          <button id="adminTemplatesTab" onclick="showAdminSection('templates')">Template Library</button>
         </div>
       </div>
 
@@ -1117,42 +1127,10 @@ window.addEventListener("load", function () {
         </div>
       </div>
 
-      <div id="adminTemplatesSection" class="panel hidden" style="margin-top:16px;">
-        <div class="job-header">
-          <div><h2 style="margin-bottom:4px;">Form Template Library</h2><p style="margin:0;">Upload and manage reusable Word, Excel and PDF templates separately from job creation.</p></div>
-          <span class="pill">No coding required</span>
-        </div>
-        <div class="creator-grid">
-          <div class="creator-section creator-wide">
-            <h3>Upload New Template</h3><p>The master file will remain in the library. A fresh copy is created whenever it is selected for a job.</p>
-            <div class="creator-two">
-              <div><label for="templateFormId">Form Code</label><input id="templateFormId" type="text" placeholder="e.g. QF28"></div>
-              <div><label for="templateTitle">Template Title</label><input id="templateTitle" type="text" placeholder="e.g. Live Working Assessment Pack"></div>
-            </div>
-            <div class="creator-two">
-              <div><label for="templateVersion">Issue / Version</label><input id="templateVersion" type="text" placeholder="e.g. Issue 3 - July 2026"></div>
-              <div><label for="templateType">Template Behaviour</label><select id="templateType"><option value="MAPPED_CERTIFICATE">Editable certificate (completed in hub)</option><option value="EDITABLE_DOCUMENT">Editable Drive document (Google sign-in needed)</option><option value="READ_SIGN">Read and sign</option><option value="REFERENCE">Reference document</option><option value="DRAWING">Drawing / markup</option></select></div>
-            </div>
-            <label for="templateFile">Template File</label><input id="templateFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx">
-            <div id="certificateMappingPanel">
-              <label for="templateMapping">Certificate Field Mapping <span class="pill" style="margin-left:6px;">Optional</span></label>
-              <textarea id="templateMapping" rows="6" placeholder="Leave this blank for Smart Automatic Mapping. Only enter mappings here when you need to override the automatic results."></textarea>
-              <div class="small-note"><strong>Recommended:</strong> leave this section blank. The hub will scan every worksheet, identify likely entry boxes, detect dates, numbers, dropdowns and checkboxes, then create the editable fields automatically. Manual format remains available as: Label | Worksheet | Cell | Type | Required | Placeholder | Choices.</div>
-            </div>
-            <button id="uploadTemplateButton" class="button" type="button" onclick="uploadNewFormTemplate()">Upload to Template Library</button>
-            <div id="templateUploadMessage"></div>
-          </div>
-          <div class="creator-section creator-wide">
-            <div class="job-header" style="margin-bottom:12px;"><div><h3 style="margin-bottom:4px;">Available Templates</h3><p style="margin:0;">These forms will appear automatically in the Create New Job screen.</p></div><button class="button secondary" style="width:auto;margin:0;" onclick="loadTemplateLibraryData()">Refresh</button></div>
-            <div id="templateLibraryList" class="form-choice-grid"><div class="small-note">Open this section to load the template library.</div></div>
-          </div>
-        </div>
-      </div>
-
       <div id="adminCreatorSection" class="panel hidden" style="margin-top:16px;">
         <div class="job-header">
-          <div><h2 style="margin-bottom:4px;">Office Job Creator</h2><p style="margin:0;">Assign work, choose required forms and upload the job pack in one place.</p></div>
-          <span class="pill">Version 4.4</span>
+          <div><h2 style="margin-bottom:4px;">Office Job Creator</h2><p style="margin:0;">Assign work and upload mandatory or supporting job documents in one place.</p></div>
+          <span class="pill">Version 9.0</span>
         </div>
         <div id="jobCreatorMessage"></div>
         <div class="creator-grid">
@@ -1167,17 +1145,13 @@ window.addEventListener("load", function () {
             <label for="creatorAddress">Full Address</label><textarea id="creatorAddress" placeholder="Site address and postcode"></textarea>
             <label for="creatorNotes">Job Instructions / Notes</label><textarea id="creatorNotes" placeholder="Access details, contact details, scope of works or special instructions"></textarea>
           </div>
-          <div class="creator-section creator-wide">
-            <h3>3. Required Job Forms</h3><p>Select the live forms or uploaded templates required for this job. A fresh job-specific copy is created. Mapped certificates are completed inside the hub and exported as PDF.</p>
-            <div id="creatorForms" class="form-choice-grid"><div class="small-note">Loading available forms...</div></div>
-          </div>
           <div class="creator-section">
-            <h3>4. Mandatory Documents</h3><p>These files must be read and acknowledged before work can start.</p>
-            <label for="creatorRequiredFiles">RAMS / Work Instructions</label><input id="creatorRequiredFiles" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
+            <h3>3. Mandatory Documents</h3><p>These files must be read and acknowledged before work can start.</p>
+            <label for="creatorRequiredFiles">RAMS / Work Instructions / Mandatory Files</label><input id="creatorRequiredFiles" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
             <div id="creatorRequiredSummary" class="upload-summary"></div>
           </div>
           <div class="creator-section">
-            <h3>5. Supporting Documents</h3><p>Drawings, permits, maps and other useful job-pack files.</p>
+            <h3>4. Supporting Documents</h3><p>Drawings, permits, work packs, maps and other useful job files. Excel workbooks are converted into editable work packs automatically.</p>
             <label for="creatorSupportingFiles">Supporting Files</label><input id="creatorSupportingFiles" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
             <div id="creatorSupportingSummary" class="upload-summary"></div>
           </div>
@@ -1474,15 +1448,15 @@ window.addEventListener("load", function () {
       document.getElementById("adminMapSection").classList.toggle("hidden", !map);
       document.getElementById("adminCreatorSection").classList.toggle("hidden", !creator);
       document.getElementById("adminJobDocumentsSection").classList.toggle("hidden", !jobDocuments);
-      document.getElementById("adminTemplatesSection").classList.toggle("hidden", !templates);
+      const templatesSection = document.getElementById("adminTemplatesSection"); if (templatesSection) templatesSection.classList.toggle("hidden", !templates);
       document.getElementById("adminOverviewTab").classList.toggle("active", overview);
       document.getElementById("adminMapTab").classList.toggle("active", map);
       document.getElementById("adminCreateTab").classList.toggle("active", creator);
       document.getElementById("adminJobDocumentsTab").classList.toggle("active", jobDocuments);
-      document.getElementById("adminTemplatesTab").classList.toggle("active", templates);
+      const templatesTab = document.getElementById("adminTemplatesTab"); if (templatesTab) templatesTab.classList.toggle("active", templates);
       if (creator) loadJobCreatorData();
       if (jobDocuments) loadManagerJobsForDocuments();
-      if (templates) loadTemplateLibraryData();
+      if (templates && document.getElementById("templateLibraryList")) loadTemplateLibraryData();
       if (map) {
         setTimeout(() => {
           if (adminJobsMap) adminJobsMap.invalidateSize();
@@ -1588,7 +1562,7 @@ window.addEventListener("load", function () {
           const typeLabel = typeLabels[String(template.templateType || "LIVE_FORM").toUpperCase()] || "Job template";
           return `<label class="form-choice"><input type="checkbox" name="creatorForm" value="${safeText(template.formId)}"><div><strong>${safeText(template.formId)} — ${safeText(template.title)}</strong><span>${safeText(template.version || "Current version")} • ${safeText(typeLabel)}</span></div></label>`;
         }).join("");
-        document.getElementById("creatorForms").innerHTML = packHtml + standaloneHtml || '<div class="small-note">No active form templates were found.</div>';
+        const creatorForms = document.getElementById("creatorForms"); if (creatorForms) creatorForms.innerHTML = packHtml + standaloneHtml || '<div class="small-note">No active form templates were found.</div>';
       } catch (error) {
         document.getElementById("jobCreatorMessage").innerHTML = `<div class="error">${safeText(error.message)}</div>`;
       }
@@ -1812,7 +1786,19 @@ window.addEventListener("load", function () {
         if (file.size > 6 * 1024 * 1024) throw new Error(`${file.name} is larger than the 6 MB upload limit. Please reduce or split the file.`);
         progress(`Uploading ${file.name} (${i+1}/${files.length})...`);
         const base64 = await fileToBase64(file);
-        await apiPost({ action:"uploadManagerJobDocument", managerName:currentManager.name, token:currentManager.token, folderId, fileName:file.name, mimeType:file.type || "application/octet-stream", base64, required });
+        const extension = String(file.name || "").toLowerCase().split(".").pop();
+        const isExcel = ["xlsx","xlsm","xls"].includes(extension);
+        await apiPost({
+          action: isExcel ? "uploadIntelligentJobDocument" : "uploadManagerJobDocument",
+          managerName:currentManager.name,
+          token:currentManager.token,
+          folderId,
+          fileName:file.name,
+          mimeType:file.type || "application/octet-stream",
+          base64,
+          required,
+          targetFolder: required ? "Required Documents" : "Supporting Documents"
+        });
       }
     }
 
@@ -1824,7 +1810,7 @@ window.addEventListener("load", function () {
       const site = document.getElementById("creatorSite").value.trim();
       const address = document.getElementById("creatorAddress").value.trim();
       const notes = document.getElementById("creatorNotes").value.trim();
-      const formIds = Array.from(document.querySelectorAll('input[name="creatorForm"]:checked')).map(input => input.value);
+      const formIds = []; // v9: job-specific documents replace reusable job-form selection
       const requiredFiles = Array.from(document.getElementById("creatorRequiredFiles").files || []);
       const supportingFiles = Array.from(document.getElementById("creatorSupportingFiles").files || []);
       const message = document.getElementById("jobCreatorMessage");
@@ -1839,7 +1825,7 @@ window.addEventListener("load", function () {
         await uploadCreatorFiles(created.folderId, requiredFiles, true, progress);
         await uploadCreatorFiles(created.folderId, supportingFiles, false, progress);
         message.innerHTML = `<div class="creator-success"><strong>Job created successfully.</strong><br>${safeText(created.jobName)} has been assigned to ${safeText(operative)} for ${safeText(created.displayDate)}.<br><a href="${safeText(created.folderUrl)}" target="_blank">Open the job folder in Google Drive</a></div>`;
-        document.getElementById("creatorReference").value=""; document.getElementById("creatorSite").value=""; document.getElementById("creatorAddress").value=""; document.getElementById("creatorNotes").value=""; document.getElementById("creatorRequiredFiles").value=""; document.getElementById("creatorSupportingFiles").value=""; document.querySelectorAll('input[name="creatorForm"]').forEach(input=>input.checked=false); renderSelectedFiles("creatorRequiredFiles","creatorRequiredSummary"); renderSelectedFiles("creatorSupportingFiles","creatorSupportingSummary");
+        document.getElementById("creatorReference").value=""; document.getElementById("creatorSite").value=""; document.getElementById("creatorAddress").value=""; document.getElementById("creatorNotes").value=""; document.getElementById("creatorRequiredFiles").value=""; document.getElementById("creatorSupportingFiles").value=""; renderSelectedFiles("creatorRequiredFiles","creatorRequiredSummary"); renderSelectedFiles("creatorSupportingFiles","creatorSupportingSummary");
         await loadAdminDashboard();
       } catch (error) {
         if (created && created.folderUrl) {
@@ -4385,34 +4371,61 @@ window.addEventListener("load", function () {
       renderDocumentProgressSummary();
       if (!documents.length) { list.innerHTML = `<div class="error">No documents are currently inside this job folder.</div>`; return; }
 
-      const packGroups = {};
-      documents.forEach((doc,index) => {
-        const mapped = doc.mappedCertificate;
-        if (mapped && mapped.packId) {
-          if (!packGroups[mapped.packId]) packGroups[mapped.packId] = { title:mapped.packTitle || mapped.packId, items:[] };
-          packGroups[mapped.packId].items.push({doc,index,order:Number(mapped.packOrder||0)});
-        }
-      });
-      const packedIndexes = new Set(Object.values(packGroups).flatMap(pack=>pack.items.map(item=>item.index)));
-      const packHtml = Object.keys(packGroups).map(packId => {
-        const pack = packGroups[packId]; pack.items.sort((a,b)=>a.order-b.order);
-        const completeCount = pack.items.filter(item => getDocumentStatusInfo(item.doc).className === "complete").length;
-        const percent = pack.items.length ? Math.round(completeCount / pack.items.length * 100) : 0;
-        return `<div class="document-hub-item ${completeCount===pack.items.length?'done':''}">
-          <div class="document-hub-title">📁 ${safeText(pack.title)}</div>
-          <div class="document-hub-meta"><span class="document-status-pill ${completeCount===pack.items.length?'complete':'waiting'}">${completeCount} of ${pack.items.length} complete</span></div>
-          <div class="smart-progress-track" style="background:#dce5ea;margin:12px 0;"><div class="smart-progress-fill" style="width:${percent}%"></div></div>
-          <div style="display:grid;gap:8px;">${pack.items.map(item=>{const s=getDocumentStatusInfo(item.doc);return `<div class="guided-progress-row ${s.className==='complete'?'complete':''}"><div class="guided-progress-icon">${s.className==='complete'?'✓':item.order}</div><div><div class="guided-progress-title">${safeText(item.doc.mappedCertificate.title)}</div><div class="guided-progress-copy">${safeText(s.label)}</div></div><button class="workflow-action" onclick="openMappedCertificate(${item.index})">${s.className==='complete'?'Edit':'Complete'}</button></div>`}).join('')}</div>
-          <button class="button" onclick="generateCompleteWorkPack('${safeText(packId)}')">📄 Generate Complete Work Pack PDF</button>
-        </div>`;
-      }).join("");
+      const requiredDocs = documents.map((doc,index)=>({doc,index,gate:getGateDocumentForHubDocument(doc)})).filter(item=>item.gate);
+      const pendingRequired = requiredDocs.filter(item=>!item.gate.acknowledged);
+      const completedRequired = requiredDocs.filter(item=>item.gate.acknowledged);
+      const gateComplete = pendingRequired.length === 0;
 
-      const standaloneHtml = documents.map((doc,index) => {
-        if (packedIndexes.has(index)) return "";
-        const status = getDocumentStatusInfo(doc), template=status.template, required=status.required;
-        return `<div class="document-hub-item ${status.className === "complete" ? "done" : required ? "required" : ""}"><div class="document-hub-title">📄 ${safeText(doc.name)}</div><div class="document-hub-meta"><span class="document-status-pill ${status.className}">${safeText(status.label)}</span>${status.detail ? `<span style="margin-left:8px;">${safeText(status.detail)}</span>` : ""}</div><div class="document-hub-actions">${doc.mappedCertificate ? `<button class="button" onclick="openMappedCertificate(${index})">✏️ Complete Certificate</button>` : `<a class="button secondary" href="${safeText(doc.url)}" target="_blank" rel="noopener">View Document</a>`}${String(doc.type || "").toLowerCase().includes("pdf") ? `<button class="button" onclick="openDrawingViewer(${index})">📐 Open Drawing Tool</button>` : ""}${required && !required.acknowledged ? `<button class="button" onclick="acknowledgeRequiredDocument(${index})">Acknowledge</button>` : ""}${template && status.label !== "Submitted" ? `<button class="button" onclick="openDocumentAsLiveForm('${safeText(template.formId)}', ${index})">${status.label === "Draft saved" ? "Continue Form" : "Complete Live"}</button>` : ""}</div></div>`;
-      }).join("");
-      list.innerHTML = packHtml + standaloneHtml;
+      const renderRequiredCard = (item, isNext) => {
+        const doc=item.doc, required=item.gate;
+        return `<div class="document-hub-item required ${isNext?'mandatory-next':''}">
+          <div class="document-hub-title">🛡️ ${safeText(required.requirementTitle || doc.originalName || doc.name)}</div>
+          <div class="document-hub-meta"><span class="document-status-pill pending">Acknowledgement required</span></div>
+          <div class="small-note" style="margin-top:8px;">${safeText(doc.originalName || doc.name)}</div>
+          <div class="document-hub-actions">
+            <a class="button secondary" href="${safeText(doc.url)}" target="_blank" rel="noopener">View Document</a>
+            <button class="button" onclick="acknowledgeRequiredDocument(${item.index})">I Have Read &amp; Understood</button>
+          </div>
+        </div>`;
+      };
+
+      let html = `<div class="compliance-gate"><h3>${gateComplete?'✓ Mandatory documents complete':'Mandatory documents first'}</h3><p>${gateComplete?'Your remaining job documents are now available.':`${pendingRequired.length} mandatory document${pendingRequired.length===1?'':'s'} must be read and acknowledged before drawings, work packs and supporting files are released.`}</p></div>`;
+
+      if (!gateComplete) {
+        html += `<div class="document-section-title"><h3>Required Now</h3><span class="pill">${pendingRequired.length} remaining</span></div>`;
+        html += pendingRequired.map((item,i)=>renderRequiredCard(item,i===0)).join("");
+        html += `<div class="compliance-lock">🔒 Supporting documents, drawings and editable work packs will unlock once the mandatory documents above are acknowledged.</div>`;
+      } else {
+        const released = documents.map((doc,index)=>({doc,index})).filter(item=>!getGateDocumentForHubDocument(item.doc));
+        const packGroups = {};
+        released.forEach(item => {
+          const mapped=item.doc.mappedCertificate;
+          if(mapped && mapped.packId){ if(!packGroups[mapped.packId]) packGroups[mapped.packId]={title:mapped.packTitle||mapped.packId,items:[]}; packGroups[mapped.packId].items.push({doc:item.doc,index:item.index,order:Number(mapped.packOrder||0)}); }
+        });
+        const packedIndexes=new Set(Object.values(packGroups).flatMap(pack=>pack.items.map(item=>item.index)));
+        html += `<div class="document-section-title"><h3>Released Job Documents</h3><span class="pill">Available</span></div>`;
+        html += Object.keys(packGroups).map(packId=>{
+          const pack=packGroups[packId]; pack.items.sort((a,b)=>a.order-b.order);
+          const completeCount=pack.items.filter(item=>getDocumentStatusInfo(item.doc).className==='complete').length;
+          const percent=pack.items.length?Math.round(completeCount/pack.items.length*100):0;
+          return `<div class="document-hub-item ${completeCount===pack.items.length?'done':''}"><div class="document-hub-title">📋 ${safeText(pack.title)}</div><div class="document-hub-meta"><span class="document-status-pill ${completeCount===pack.items.length?'complete':'waiting'}">${completeCount} of ${pack.items.length} complete</span></div><div class="smart-progress-track" style="background:#dce5ea;margin:12px 0;"><div class="smart-progress-fill" style="width:${percent}%"></div></div><div style="display:grid;gap:8px;">${pack.items.map(item=>{const s=getDocumentStatusInfo(item.doc);return `<div class="guided-progress-row ${s.className==='complete'?'complete':''}"><div class="guided-progress-icon">${s.className==='complete'?'✓':item.order}</div><div><div class="guided-progress-title">${safeText(item.doc.mappedCertificate.title)}</div><div class="guided-progress-copy">${safeText(s.label)}</div></div><button class="workflow-action" onclick="openMappedCertificate(${item.index})">${s.className==='complete'?'Edit':'Complete'}</button></div>`}).join('')}</div><button class="button" onclick="generateCompleteWorkPack('${safeText(packId)}')">📄 Generate Complete Work Pack PDF</button></div>`;
+        }).join('');
+
+        html += released.map(item=>{
+          const doc=item.doc,index=item.index;
+          if(packedIndexes.has(index)) return '';
+          const status=getDocumentStatusInfo(doc), template=status.template;
+          const isPdf=String(doc.type||'').toLowerCase().includes('pdf');
+          const isDrawing=String(doc.category||doc.name||'').toLowerCase().includes('drawing');
+          return `<div class="document-hub-item ${status.className==='complete'?'done':''}"><div class="document-hub-title">${doc.mappedCertificate?'📋':isDrawing?'📐':'📄'} ${safeText(doc.name)}</div><div class="document-hub-meta"><span class="document-status-pill ${status.className}">${safeText(status.label)}</span>${status.detail?`<span style="margin-left:8px;">${safeText(status.detail)}</span>`:''}</div><div class="document-hub-actions">${doc.mappedCertificate?`<button class="button" onclick="openMappedCertificate(${index})">✏️ Complete Document</button>`:`<a class="button secondary" href="${safeText(doc.url)}" target="_blank" rel="noopener">View Document</a>`}${isPdf&&isDrawing?`<button class="button" onclick="openDrawingViewer(${index})">📐 Open Drawing Tool</button>`:''}${template&&status.label!=="Submitted"?`<button class="button" onclick="openDocumentAsLiveForm('${safeText(template.formId)}', ${index})">${status.label==='Draft saved'?'Continue Form':'Complete Live'}</button>`:''}</div></div>`;
+        }).join('');
+      }
+
+      const completedItems=[];
+      completedRequired.forEach(item=>completedItems.push(`<div class="document-status-row"><span class="document-status-name">✓ ${safeText(item.doc.originalName||item.doc.name)}</span><span class="document-status-pill complete">Acknowledged ${safeText(item.gate.acknowledgedTime||'')}</span></div>`));
+      documents.forEach(doc=>{const s=getDocumentStatusInfo(doc);if(!getGateDocumentForHubDocument(doc)&&s.className==='complete')completedItems.push(`<div class="document-status-row"><span class="document-status-name">✓ ${safeText(doc.name)}</span><span class="document-status-pill complete">${safeText(s.label)} ${safeText(s.detail||'')}</span></div>`);});
+      if(completedItems.length) html += `<details class="completed-docs-panel"><summary>Completed Documents (${completedItems.length})</summary>${completedItems.join('')}</details>`;
+      list.innerHTML=html;
     }
 
     async function generateCompleteWorkPack(packId) {
