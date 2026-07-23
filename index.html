@@ -668,7 +668,9 @@ window.addEventListener("load", function () {
     .visual-editor-hint{font-size:13px;color:#52606a;margin:0}.visual-zoom-label{font-weight:900;color:#25313b;min-width:52px;text-align:center}
     @media(max-width:720px){.visual-editor-card{width:100vw!important;max-width:none!important;height:100vh;max-height:none!important;border-radius:0!important}.visual-document-scroll{max-height:68vh;padding:8px}.visual-field{border-width:1.5px}.visual-editor-toolbar .button{padding:9px 11px;font-size:12px}}
 
-  </style>
+  
+    @keyframes spin { to { transform: rotate(360deg); } }
+</style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
@@ -2163,25 +2165,51 @@ window.addEventListener("load", function () {
       }
     }
 
+    function getJobActionProgressText(action) {
+      return ({
+        accept: "Accepting Job…",
+        startTravel: "Starting Travel…",
+        arriveOnSite: "Recording Arrival…",
+        startWork: "Starting Work…",
+        pause: "Pausing Job…",
+        resume: "Resuming Job…",
+        pauseOvernight: "Saving Overnight Pause…",
+        complete: "Completing Job…"
+      })[action] || "Saving…";
+    }
+
     function setJobActionButtonsDisabled(disabled, activeAction) {
       document.querySelectorAll(".job-action-button").forEach(button => {
         button.disabled = disabled;
 
         if (disabled && button.id === `jobAction_${activeAction}`) {
           button.dataset.originalText = button.textContent;
-          button.textContent = "Saving...";
+          button.setAttribute("aria-busy", "true");
+          button.textContent = getJobActionProgressText(activeAction);
         } else if (!disabled && button.dataset.originalText) {
           button.textContent = button.dataset.originalText;
+          button.removeAttribute("aria-busy");
           delete button.dataset.originalText;
         }
       });
+    }
+
+    function showJobActionProgress(action) {
+      const message = document.getElementById("trackingMessage");
+      if (!message) return;
+      const label = getJobActionProgressText(action).replace("…", "");
+      message.innerHTML =
+        `<div class="info" role="status" aria-live="polite" style="display:flex;align-items:center;gap:10px;">
+          <span style="width:18px;height:18px;border:3px solid rgba(18,184,212,.25);border-top-color:#12b8d4;border-radius:50%;display:inline-block;animation:spin .8s linear infinite;"></span>
+          <strong>${safeText(label)} — please wait.</strong>
+        </div>`;
     }
 
     async function performJobAction(jobAction) {
       if (!selectedJob || !currentOperative || jobActionInProgress) return;
 
       const message = document.getElementById("trackingMessage");
-      message.innerHTML = "";
+      showJobActionProgress(jobAction);
 
       const currentTracking = jobTracking[selectedJob.folderId] || {};
 
@@ -2304,8 +2332,13 @@ window.addEventListener("load", function () {
             data.pdfUrl || "";
         }
 
+        // Update the screen immediately from the returned action result.
+        // The heavier workflow refresh then runs in the background so the
+        // operative never waits on a second server request before seeing success.
         updateTrackingDisplay();
-        await loadSmartWorkflow();
+        loadSmartWorkflow().catch(error => {
+          console.warn("Workflow background refresh failed:", error);
+        });
 
         if (jobAction === "complete" && data.pdfUrl) {
           message.innerHTML =
