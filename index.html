@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ManPowerConnections | Operative Portal v7.0 Intelligent Job Work Packs</title>
+  <title>ManPowerConnections | Operative Portal v8.0 Performance Edition</title>
 
   <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
@@ -1349,23 +1349,41 @@ window.addEventListener("load", function () {
         document.getElementById("loginView").classList.add("hidden");
         document.getElementById("adminDashboardView").classList.remove("hidden");
         document.getElementById("adminWelcome").textContent = `Welcome, ${data.name}`;
-        await loadAdminDashboard(true);
+        loadAdminDashboard(true);
         setCreatorDefaultDate();
       } catch (error) { message.innerHTML = `<div class="error">${safeText(error.message)}</div>`; }
     }
 
-    async function loadAdminDashboard(initialLoad = false) {
+    async function loadAdminDashboard(initialLoad = false, forceRefresh = false) {
       if (!currentManager) return;
       const message = document.getElementById("adminDashboardMessage");
       const loading = document.getElementById("adminLoadingScreen");
       const content = document.getElementById("adminDashboardContent");
-      if (initialLoad) { loading.classList.remove("hidden"); content.classList.add("hidden"); }
-      else message.innerHTML = '<div class="section-intro">Refreshing today&apos;s live data...</div>';
+      const storageKey = "mpc_v8_manager_dashboard_" + new Date().toISOString().slice(0,10);
+
+      // Paint the most recent dashboard immediately, then refresh it in the background.
+      let paintedCache = false;
+      if (initialLoad) {
+        try {
+          const saved = JSON.parse(sessionStorage.getItem(storageKey) || "null");
+          if (saved && saved.data && Date.now() - saved.savedAt < 10 * 60 * 1000) {
+            adminDashboardData = saved.data;
+            renderAdminDashboard(saved.data);
+            loading.classList.add("hidden");
+            content.classList.remove("hidden");
+            message.innerHTML = '<div class="section-intro">Showing the latest saved view while live data refreshes…</div>';
+            paintedCache = true;
+          }
+        } catch (ignore) {}
+        if (!paintedCache) { loading.classList.remove("hidden"); content.classList.add("hidden"); }
+      } else message.innerHTML = '<div class="section-intro">Refreshing today&apos;s live data…</div>';
+
       try {
-        const data = await apiPost({ action: "getAdminDashboard", managerName: currentManager.name, token: currentManager.token });
+        const data = await apiPost({ action:"getAdminDashboard", managerName:currentManager.name, token:currentManager.token, forceRefresh:Boolean(forceRefresh) });
         adminDashboardData = data;
         renderAdminDashboard(data);
-        message.innerHTML = "";
+        try { sessionStorage.setItem(storageKey, JSON.stringify({ savedAt:Date.now(), data:data })); } catch (ignore) {}
+        message.innerHTML = data.cached ? '<div class="small-note">Loaded from the fast server cache.</div>' : "";
         loading.classList.add("hidden"); content.classList.remove("hidden");
       } catch (error) {
         loading.classList.add("hidden"); content.classList.remove("hidden");
@@ -1418,9 +1436,9 @@ window.addEventListener("load", function () {
       const tbody = document.getElementById("adminJobsTableBody");
       tbody.innerHTML = rows.map(({op,job}) => {
         const status = job ? job.status : "No Job";
-        return `<tr><td><strong>${safeText(op.name)}</strong></td><td>${safeText(op.vehicle || "—")}</td><td><span class="mini-status ${op.vanCheckComplete ? "green" : "red"}">${op.vanCheckComplete ? "Complete" : "Outstanding"}</span></td><td>${job ? safeText(job.jobName) : "No job folder"}</td><td><span class="mini-status ${adminStatusClass(status)}">${safeText(status)}</span></td><td>${job ? job.progress + "%" : "—"}</td><td>${job ? `${job.documentsAcknowledged}/${job.documentsRequired}` : "—"}</td><td>${job ? `${job.formsComplete}/${job.formsTotal}` : "—"}</td><td>${job ? job.photoCount : "—"}</td><td>${job && job.activeDelay ? `<span class="mini-status red">${safeText(job.activeDelay.reason)}</span>` : "—"}</td><td>${job ? `<button class="workflow-action" onclick="openAdminJobDetails('${safeText(op.name)}','${safeText(job.folderId)}')">View</button>` : ""}</td></tr>`;
+        return `<tr><td><strong>${safeText(op.name)}</strong></td><td>${safeText(op.vehicle || "—")}</td><td><span class="mini-status ${op.vanCheckComplete ? "green" : "red"}">${op.vanCheckComplete ? "Complete" : "Outstanding"}</span></td><td>${job ? safeText(job.jobName) : "No job folder"}</td><td><span class="mini-status ${adminStatusClass(status)}">${safeText(status)}</span></td><td>${job ? job.progress + "%" : "—"}</td><td>${job ? (job.detailsDeferred ? "View" : `${job.documentsAcknowledged}/${job.documentsRequired}`) : "—"}</td><td>${job ? (job.detailsDeferred ? "View" : `${job.formsComplete}/${job.formsTotal}`) : "—"}</td><td>${job ? (job.detailsDeferred ? "View" : job.photoCount) : "—"}</td><td>${job && job.activeDelay ? `<span class="mini-status red">${safeText(job.activeDelay.reason)}</span>` : "—"}</td><td>${job ? `<button class="workflow-action" onclick="openAdminJobDetails('${safeText(op.name)}','${safeText(job.folderId)}')">View</button>` : ""}</td></tr>`;
       }).join("");
-      document.getElementById("adminMobileList").innerHTML = (data.operatives || []).map(op => `<div class="admin-operative-card"><div class="admin-operative-head"><div><div class="admin-operative-name">${safeText(op.name)}</div><div class="admin-operative-meta">${safeText(op.vehicle || "No vehicle")} • Van check ${op.vanCheckComplete ? "complete" : "outstanding"}</div></div><span class="mini-status ${op.vanCheckComplete ? "green" : "red"}">${(op.jobs || []).length} job${(op.jobs || []).length === 1 ? "" : "s"}</span></div>${(op.jobs || []).map(job => `<div class="admin-job-row"><div><div class="admin-job-name">${safeText(job.jobName)}</div><div class="admin-job-meta">${safeText(job.status)} • ${job.progress}% • ${job.photoCount} photos${job.activeDelay ? " • DELAY ACTIVE" : ""}</div></div><button onclick="openAdminJobDetails('${safeText(op.name)}','${safeText(job.folderId)}')">View</button></div>`).join("") || '<div class="admin-job-meta" style="margin-top:12px;">No jobs assigned today.</div>'}</div>`).join("");
+      document.getElementById("adminMobileList").innerHTML = (data.operatives || []).map(op => `<div class="admin-operative-card"><div class="admin-operative-head"><div><div class="admin-operative-name">${safeText(op.name)}</div><div class="admin-operative-meta">${safeText(op.vehicle || "No vehicle")} • Van check ${op.vanCheckComplete ? "complete" : "outstanding"}</div></div><span class="mini-status ${op.vanCheckComplete ? "green" : "red"}">${(op.jobs || []).length} job${(op.jobs || []).length === 1 ? "" : "s"}</span></div>${(op.jobs || []).map(job => `<div class="admin-job-row"><div><div class="admin-job-name">${safeText(job.jobName)}</div><div class="admin-job-meta">${safeText(job.status)} • ${job.progress}%${job.detailsDeferred ? " • details load on opening" : " • " + job.photoCount + " photos"}${job.activeDelay ? " • DELAY ACTIVE" : ""}</div></div><button onclick="openAdminJobDetails('${safeText(op.name)}','${safeText(job.folderId)}')">View</button></div>`).join("") || '<div class="admin-job-meta" style="margin-top:12px;">No jobs assigned today.</div>'}</div>`).join("");
     }
 
     async function openAdminJobDetails(operative, folderId) {
