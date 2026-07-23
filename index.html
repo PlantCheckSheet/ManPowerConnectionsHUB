@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ManPowerConnections | Operative Portal v9.0 Compliance Document Workflow</title>
+  <title>ManPowerConnections | Operative Portal v10.0 Universal Form Builder</title>
 
   <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
@@ -1111,10 +1111,18 @@ window.addEventListener("load", function () {
             </select>
           </div>
           <div class="creator-section">
-            <h3>3. Select Files</h3>
-            <label for="managerJobDocumentFiles">Documents or Excel Work Packs</label>
-            <input id="managerJobDocumentFiles" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
-            <div class="small-note" style="margin-bottom:10px;"><strong>Excel files:</strong> automatically converted into editable work packs. PDFs, Word files and images are stored normally in the selected folder.</div><div id="managerJobDocumentSummary" class="upload-summary"></div>
+            <h3>3. Choose Behaviour</h3>
+            <label for="managerDocumentBehaviour">How should the document be used?</label>
+            <select id="managerDocumentBehaviour">
+              <option value="AUTO">Automatic — Excel editable, others view only</option>
+              <option value="VIEW_ONLY">View only</option>
+              <option value="ACKNOWLEDGE">Read and acknowledge</option>
+              <option value="EDITABLE_FORM">Editable form — PDF / Word / Excel</option>
+              <option value="DRAWING">Drawing markup</option>
+            </select>
+            <label for="managerJobDocumentFiles">Select documents</label>
+            <input id="managerJobDocumentFiles" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.xlsm,.jpg,.jpeg,.png">
+            <div class="small-note" style="margin-bottom:10px;"><strong>Editable form:</strong> PDF and Word files open in the Universal Form Builder. Excel continues to use automatic spreadsheet mapping.</div><div id="managerJobDocumentSummary" class="upload-summary"></div>
           </div>
           <div class="creator-section creator-wide">
             <button id="uploadManagerJobDocumentsButton" class="button" type="button" onclick="uploadFilesToSelectedManagerJob()">Intelligent Upload</button>
@@ -1130,7 +1138,7 @@ window.addEventListener("load", function () {
       <div id="adminCreatorSection" class="panel hidden" style="margin-top:16px;">
         <div class="job-header">
           <div><h2 style="margin-bottom:4px;">Office Job Creator</h2><p style="margin:0;">Assign work and upload mandatory or supporting job documents in one place.</p></div>
-          <span class="pill">Version 9.0</span>
+          <span class="pill">Version 10.0</span>
         </div>
         <div id="jobCreatorMessage"></div>
         <div class="creator-grid">
@@ -1164,6 +1172,25 @@ window.addEventListener("load", function () {
       </div>
     </section>
 
+
+    <div id="universalFormBuilderModal" class="admin-modal hidden">
+      <div class="admin-modal-card" style="max-width:1180px;">
+        <button class="modal-close" type="button" onclick="closeUniversalFormBuilder()">×</button>
+        <div class="job-header"><div><h2 id="universalBuilderTitle">Universal Form Builder</h2><p>Review automatic suggestions, then tap the page to add any missing fields.</p></div><span class="pill">v10 Form Builder</span></div>
+        <div id="universalBuilderMessage"></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:16px;align-items:start;">
+          <div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;"><button class="button secondary" type="button" onclick="universalBuilderPage(-1)">← Previous</button><strong id="universalBuilderPageLabel">Page 1</strong><button class="button secondary" type="button" onclick="universalBuilderPage(1)">Next →</button><button class="button" type="button" onclick="autoDetectUniversalFields()">Auto-detect fields</button></div>
+            <div id="universalBuilderPage" style="position:relative;display:inline-block;max-width:100%;box-shadow:0 8px 26px rgba(0,0,0,.18);background:#fff;touch-action:none;"><canvas id="universalBuilderCanvas" style="display:block;max-width:100%;height:auto;"></canvas><div id="universalBuilderLayer" style="position:absolute;inset:0;"></div></div>
+            <div class="small-note">Tap a blank box on the document to add a field. Drag fields to reposition them.</div>
+          </div>
+          <div class="creator-section" style="position:sticky;top:10px;max-height:72vh;overflow:auto;">
+            <h3>Detected Fields</h3><div id="universalBuilderFieldList"></div>
+            <button class="button" type="button" onclick="saveUniversalFormBuilder()">Publish Editable Form</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div id="mappedCertificateModal" class="admin-modal hidden">
       <div class="admin-modal-card visual-editor-card">
@@ -1878,24 +1905,38 @@ window.addEventListener("load", function () {
       if (!currentManager) return;
       const folderId = document.getElementById("managerJobDocumentSelect").value;
       const targetFolder = document.getElementById("managerJobTargetFolder").value;
+      const behaviour = document.getElementById("managerDocumentBehaviour").value;
       const files = Array.from(document.getElementById("managerJobDocumentFiles").files || []);
       const button = document.getElementById("uploadManagerJobDocumentsButton");
       const message = document.getElementById("managerJobDocumentsMessage");
       if (!folderId) { message.innerHTML='<div class="error">Select the job first.</div>'; return; }
       if (!files.length) { message.innerHTML='<div class="error">Choose at least one document to upload.</div>'; return; }
+      if (behaviour === "EDITABLE_FORM" && files.length > 1) { message.innerHTML='<div class="error">Upload one editable PDF or Word form at a time so its fields can be reviewed.</div>'; return; }
       button.disabled = true;
       try {
         for (let i=0;i<files.length;i++) {
           const file=files[i];
-          if (file.size > 6*1024*1024) throw new Error(`${file.name} is larger than the 6 MB upload limit.`);
+          if (file.size > 12*1024*1024) throw new Error(`${file.name} is larger than the 12 MB upload limit.`);
           const isExcel = /\.(xlsx|xlsm|xls)$/i.test(file.name);
-          message.innerHTML=`<div class="section-intro">${isExcel ? "Creating editable work pack from" : "Uploading"} ${safeText(file.name)} (${i+1}/${files.length})...</div>`;
-          if (isExcel) startProcessingOverlay(file.name);
+          const editableUniversal = behaviour === "EDITABLE_FORM" && !isExcel;
+          message.innerHTML=`<div class="section-intro">${editableUniversal ? "Preparing form builder for" : isExcel ? "Creating editable work pack from" : "Uploading"} ${safeText(file.name)} (${i+1}/${files.length})...</div>`;
           const base64=await fileToBase64(file);
-          const result = await apiPost({ action:"uploadIntelligentJobDocument", managerName:currentManager.name, token:currentManager.token, folderId, targetFolder, fileName:file.name, mimeType:file.type || "application/octet-stream", base64 });
-          if (isExcel) completeProcessingOverlay(result);
+          let result;
+          if (editableUniversal) {
+            result = await apiPost({action:"uploadUniversalFormDocument",managerName:currentManager.name,token:currentManager.token,folderId,fileName:file.name,mimeType:file.type||"application/octet-stream",base64});
+            await openUniversalFormBuilder(result);
+          } else if (isExcel && behaviour !== "VIEW_ONLY" && behaviour !== "ACKNOWLEDGE" && behaviour !== "DRAWING") {
+            startProcessingOverlay(file.name);
+            result=await apiPost({action:"uploadIntelligentJobDocument",managerName:currentManager.name,token:currentManager.token,folderId,targetFolder,fileName:file.name,mimeType:file.type||"application/octet-stream",base64});
+            completeProcessingOverlay(result);
+          } else {
+            let chosenFolder=targetFolder;
+            if (behaviour === "ACKNOWLEDGE") chosenFolder="Required Documents";
+            if (behaviour === "DRAWING") chosenFolder="Drawings";
+            result=await apiPost({action:"uploadManagerJobDocument",managerName:currentManager.name,token:currentManager.token,folderId,targetFolder:chosenFolder,fileName:file.name,mimeType:file.type||"application/octet-stream",base64,required:behaviour==="ACKNOWLEDGE"});
+          }
         }
-        message.innerHTML=`<div class="success"><strong>${files.length} file${files.length===1?"":"s"} processed successfully.</strong><br>Excel workbooks are now editable work packs; all other files were stored normally.</div>`;
+        message.innerHTML=`<div class="success"><strong>${files.length} file${files.length===1?"":"s"} processed successfully.</strong></div>`;
         document.getElementById("managerJobDocumentFiles").value="";
         renderSelectedFiles("managerJobDocumentFiles","managerJobDocumentSummary");
         await loadSelectedManagerJobDocuments();
@@ -4202,6 +4243,7 @@ window.addEventListener("load", function () {
 
 
     let visualPdfDocument = null;
+    let visualCurrentPage = 1;
     let visualZoom = 100;
 
     async function openMappedCertificate(documentIndex) {
@@ -4221,6 +4263,7 @@ window.addEventListener("load", function () {
         document.getElementById("mappedCertificateTitle").textContent = `${data.formId} — ${data.title}`;
         document.getElementById("mappedCertificateIntro").textContent = `${selectedJob.jobName} • Tap a highlighted box to enter text, dates or Yes / No / N/A.`;
         visualZoom = window.innerWidth < 720 ? 115 : 100;
+        visualCurrentPage = 1;
         await renderVisualDocument();
         message.innerHTML = "";
       } catch (error) {
@@ -4234,7 +4277,7 @@ window.addEventListener("load", function () {
       const bytes = new Uint8Array(binary.length);
       for (let i=0;i<binary.length;i++) bytes[i] = binary.charCodeAt(i);
       visualPdfDocument = await window.pdfjsLib.getDocument({data:bytes}).promise;
-      const page = await visualPdfDocument.getPage(1);
+      const page = await visualPdfDocument.getPage(visualCurrentPage);
       const baseViewport = page.getViewport({scale:1.5});
       const canvas = document.getElementById("visualDocumentCanvas");
       canvas.width = Math.ceil(baseViewport.width);
@@ -4243,6 +4286,7 @@ window.addEventListener("load", function () {
       const pageEl = document.getElementById("visualDocumentPage");
       pageEl.style.width = canvas.width + "px";
       pageEl.style.height = canvas.height + "px";
+      document.getElementById("visualPageLabel").textContent = `Page ${visualCurrentPage} of ${visualPdfDocument.numPages}`;
       renderVisualFieldLayer();
       applyVisualZoom();
     }
@@ -4250,7 +4294,7 @@ window.addEventListener("load", function () {
     function renderVisualFieldLayer() {
       const layer = document.getElementById("visualFieldLayer");
       const canvas = document.getElementById("visualDocumentCanvas");
-      layer.innerHTML = (currentMappedCertificate.fields || []).map(field => {
+      layer.innerHTML = (currentMappedCertificate.fields || []).filter(field => Number(field.page || 1) === visualCurrentPage).map(field => {
         const g = field.visual || {x:0,y:0,width:.1,height:.03};
         const left = Math.max(0,Math.min(99,g.x*100));
         const top = Math.max(0,Math.min(99,g.y*100));
@@ -4279,6 +4323,13 @@ window.addEventListener("load", function () {
       const checked = button.dataset.checked !== "true";
       button.dataset.checked = checked ? "true" : "false";
       button.textContent = checked ? "X" : "";
+    }
+
+    async function changeVisualPage(amount) {
+      if (!visualPdfDocument) return;
+      storeVisibleMappedValues();
+      visualCurrentPage = Math.max(1, Math.min(visualPdfDocument.numPages, visualCurrentPage + Number(amount || 0)));
+      await renderVisualDocument();
     }
 
     function changeVisualZoom(amount) {
@@ -4335,7 +4386,7 @@ window.addEventListener("load", function () {
       button.disabled = true;
       message.innerHTML = '<div class="section-intro">Saving entries into the document...</div>';
       try {
-        const result = await apiPost({action:"saveMappedCertificate",mode:"DRAFT",name:currentOperative.name,jobName:selectedJob.jobName,folderId:selectedJob.folderId,documentId:currentMappedCertificate.documentId,values:collected.values});
+        const result = await apiPost({action:currentMappedCertificate.editorMode==="UNIVERSAL_PDF_FORM"?"saveUniversalFormCompletion":"saveMappedCertificate",mode:"DRAFT",name:currentOperative.name,jobName:selectedJob.jobName,folderId:selectedJob.folderId,documentId:currentMappedCertificate.documentId,values:collected.values});
         message.innerHTML = `<div class="success">Progress saved at ${safeText(result.savedAt)}.</div>`;
       } catch(error) { message.innerHTML = `<div class="error">${safeText(error.message)}</div>`; }
       finally { button.disabled=false; }
@@ -4355,7 +4406,9 @@ window.addEventListener("load", function () {
       button.disabled=true;
       message.innerHTML='<div class="section-intro">Writing onto the original document and generating the completed PDF...</div>';
       try {
-        const result=await apiPost({action:"saveMappedCertificate",mode:"FINAL",name:currentOperative.name,jobName:selectedJob.jobName,folderId:selectedJob.folderId,documentId:currentMappedCertificate.documentId,values:collected.values});
+        let payload={action:"saveMappedCertificate",mode:"FINAL",name:currentOperative.name,jobName:selectedJob.jobName,folderId:selectedJob.folderId,documentId:currentMappedCertificate.documentId,values:collected.values};
+        if(currentMappedCertificate.editorMode==="UNIVERSAL_PDF_FORM"){payload.action="saveUniversalFormCompletion";payload.completedPdfBase64=await buildUniversalCompletedPdf(collected.values);}
+        const result=await apiPost(payload);
         message.innerHTML=`<div class="success">Document completed at ${safeText(result.savedAt)}.<br><br><a href="${safeText(result.pdfUrl)}" target="_blank" rel="noopener" style="font-weight:900;">Open completed PDF</a></div>`;
         await ensureSelectedJobDocumentsLoaded(true); renderDocuments();
       } catch(error) { message.innerHTML=`<div class="error">${safeText(error.message)}</div>`; }
@@ -5050,6 +5103,57 @@ window.addEventListener("load", function () {
 
     populateOperatives();
     renderVanChecks();
-  </script>
+  
+
+    let universalBuilder=null, universalBuilderPdf=null, universalBuilderCurrentPage=1, universalBuilderScale=1.35;
+    async function openUniversalFormBuilder(data){
+      universalBuilder=Object.assign({},data,{fields:data.fields||[]}); universalBuilderCurrentPage=1;
+      document.getElementById("universalFormBuilderModal").classList.remove("hidden");
+      document.getElementById("universalBuilderTitle").textContent=data.title+" — Field Setup";
+      const bin=atob(data.previewPdfBase64||""); const bytes=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+      universalBuilderPdf=await window.pdfjsLib.getDocument({data:bytes}).promise; universalBuilder.pageCount=universalBuilderPdf.numPages;
+      await renderUniversalBuilderPage();
+    }
+    async function renderUniversalBuilderPage(){
+      if(!universalBuilderPdf)return; const page=await universalBuilderPdf.getPage(universalBuilderCurrentPage); const vp=page.getViewport({scale:universalBuilderScale});
+      const canvas=document.getElementById("universalBuilderCanvas"); canvas.width=Math.ceil(vp.width);canvas.height=Math.ceil(vp.height);
+      await page.render({canvasContext:canvas.getContext("2d",{alpha:false}),viewport:vp,background:"#fff"}).promise;
+      document.getElementById("universalBuilderPage").style.width=canvas.width+"px";document.getElementById("universalBuilderPage").style.height=canvas.height+"px";
+      document.getElementById("universalBuilderPageLabel").textContent=`Page ${universalBuilderCurrentPage} of ${universalBuilderPdf.numPages}`; renderUniversalBuilderFields();
+    }
+    function renderUniversalBuilderFields(){
+      const layer=document.getElementById("universalBuilderLayer");
+      layer.innerHTML=(universalBuilder.fields||[]).filter(f=>Number(f.page||1)===universalBuilderCurrentPage).map(f=>{const g=f.visual;return `<div class="visual-field" data-builder-id="${safeText(f.id)}" style="left:${g.x*100}%;top:${g.y*100}%;width:${g.width*100}%;height:${g.height*100}%;background:rgba(18,184,212,.18);border:2px solid #12b8d4;cursor:move;"><span style="font-size:10px;font-weight:900;background:#12b8d4;color:#fff;padding:1px 3px;">${safeText(f.label)}</span></div>`}).join("");
+      layer.onpointerdown=builderPointerDown; document.getElementById("universalBuilderPage").onclick=builderPageClick; renderUniversalFieldList();
+    }
+    let builderDrag=null;
+    function builderPointerDown(e){const el=e.target.closest('[data-builder-id]');if(!el)return;e.stopPropagation();const f=universalBuilder.fields.find(x=>x.id===el.dataset.builderId);if(!f)return;builderDrag={el,f,startX:e.clientX,startY:e.clientY,x:f.visual.x,y:f.visual.y};el.setPointerCapture&&el.setPointerCapture(e.pointerId);el.onpointermove=builderPointerMove;el.onpointerup=builderPointerUp;}
+    function builderPointerMove(e){if(!builderDrag)return;const r=document.getElementById("universalBuilderLayer").getBoundingClientRect();builderDrag.f.visual.x=Math.max(0,Math.min(1-builderDrag.f.visual.width,builderDrag.x+(e.clientX-builderDrag.startX)/r.width));builderDrag.f.visual.y=Math.max(0,Math.min(1-builderDrag.f.visual.height,builderDrag.y+(e.clientY-builderDrag.startY)/r.height));builderDrag.el.style.left=builderDrag.f.visual.x*100+"%";builderDrag.el.style.top=builderDrag.f.visual.y*100+"%";}
+    function builderPointerUp(){builderDrag=null;renderUniversalFieldList();}
+    function builderPageClick(e){if(e.target.closest('[data-builder-id]'))return;const r=document.getElementById("universalBuilderLayer").getBoundingClientRect();const id="field_"+(Date.now());universalBuilder.fields.push({id,label:"New field",type:"text",required:false,page:universalBuilderCurrentPage,visual:{x:Math.max(0,(e.clientX-r.left)/r.width),y:Math.max(0,(e.clientY-r.top)/r.height),width:.20,height:.04},options:[]});renderUniversalBuilderFields();}
+    async function autoDetectUniversalFields(){
+      const page=await universalBuilderPdf.getPage(universalBuilderCurrentPage), content=await page.getTextContent(), vp=page.getViewport({scale:1});
+      const keys=[/contract name/i,/contract number/i,/completed by/i,/date\s*\/\s*time/i,/translator name/i,/brief description/i,/rams no/i,/permit/i,/isolation/i,/other ppe/i,/first aider/i,/fire warden/i,/lessons for next time/i,/new hazards/i,/signature/i,/name/i,/role/i];
+      let added=0; content.items.forEach(item=>{const text=String(item.str||"").trim();if(!text||!keys.some(k=>k.test(text)))return;const tx=window.pdfjsLib.Util.transform(vp.transform,item.transform),x=Math.max(0,Math.min(.90,(tx[4]+Math.max(item.width||50,55))/vp.width)),y=Math.max(0,Math.min(.96,1-(tx[5]/vp.height)-.018));const duplicate=universalBuilder.fields.some(f=>f.page===universalBuilderCurrentPage&&Math.abs(f.visual.x-x)<.04&&Math.abs(f.visual.y-y)<.025);if(duplicate)return;const type=/date/i.test(text)?"date":/signature/i.test(text)?"signature":/brief|lessons|hazard/i.test(text)?"textarea":"text";universalBuilder.fields.push({id:"auto_"+Date.now()+"_"+added,label:text.replace(/:$/,""),type,required:false,page:universalBuilderCurrentPage,visual:{x,y,width:type==="textarea"?.32:.20,height:type==="textarea"?.08:.035},options:[]});added++;});
+      document.getElementById("universalBuilderMessage").innerHTML=`<div class="success">${added} field suggestions added on this page. Tap the document to add any that were missed.</div>`;renderUniversalBuilderFields();
+    }
+    function renderUniversalFieldList(){const el=document.getElementById("universalBuilderFieldList");el.innerHTML=(universalBuilder.fields||[]).map((f,i)=>`<div class="document-status-row" style="display:block;margin-bottom:8px;"><input value="${safeText(f.label)}" onchange="updateBuilderField(${i},'label',this.value)" style="margin-bottom:6px;"><div style="display:grid;grid-template-columns:1fr auto;gap:6px;"><select onchange="updateBuilderField(${i},'type',this.value)">${['text','textarea','date','time','number','checkbox','select','signature'].map(t=>`<option ${f.type===t?'selected':''}>${t}</option>`).join('')}</select><button class="workflow-action" onclick="deleteBuilderField(${i})">Delete</button></div><label style="display:flex;gap:6px;align-items:center;margin-top:5px;"><input type="checkbox" ${f.required?'checked':''} onchange="updateBuilderField(${i},'required',this.checked)"> Required • Page ${f.page}</label></div>`).join('')||'<div class="small-note">No fields yet. Run auto-detect or tap the page.</div>';}
+    function updateBuilderField(i,key,value){universalBuilder.fields[i][key]=value;renderUniversalBuilderFields();}
+    function deleteBuilderField(i){universalBuilder.fields.splice(i,1);renderUniversalBuilderFields();}
+    async function universalBuilderPage(delta){universalBuilderCurrentPage=Math.max(1,Math.min(universalBuilderPdf.numPages,universalBuilderCurrentPage+delta));await renderUniversalBuilderPage();}
+    async function saveUniversalFormBuilder(){const m=document.getElementById("universalBuilderMessage");m.innerHTML='<div class="section-intro">Publishing editable field map...</div>';try{const result=await apiPost({action:"saveUniversalFormMapping",managerName:currentManager.name,token:currentManager.token,formId:universalBuilder.formId,pageCount:universalBuilderPdf.numPages,fields:universalBuilder.fields});m.innerHTML=`<div class="success">${safeText(result.message)}. Operatives can now complete this form.</div>`;await loadSelectedManagerJobDocuments();}catch(e){m.innerHTML=`<div class="error">${safeText(e.message)}</div>`;}}
+    function closeUniversalFormBuilder(){document.getElementById("universalFormBuilderModal").classList.add("hidden");universalBuilder=null;universalBuilderPdf=null;}
+
+    async function buildUniversalCompletedPdf(values){
+      const {jsPDF}=window.jspdf; let out=null;
+      for(let p=1;p<=visualPdfDocument.numPages;p++){
+        const page=await visualPdfDocument.getPage(p),vp=page.getViewport({scale:1.7}),c=document.createElement('canvas');c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);await page.render({canvasContext:c.getContext('2d',{alpha:false}),viewport:vp,background:'#fff'}).promise;
+        const orientation=c.width>=c.height?'landscape':'portrait';if(!out)out=new jsPDF({orientation,unit:'px',format:[c.width,c.height],hotfixes:['px_scaling'],compress:true});else out.addPage([c.width,c.height],orientation);out.addImage(c.toDataURL('image/jpeg',.82),'JPEG',0,0,c.width,c.height,undefined,'FAST');
+        const fields=(currentMappedCertificate.fields||[]).filter(f=>Number(f.page||1)===p);out.setTextColor(0,0,0);
+        fields.forEach(f=>{const g=f.visual||{},x=(g.x||0)*c.width,y=(g.y||0)*c.height,w=(g.width||.1)*c.width,h=(g.height||.03)*c.height,v=values[f.id];if(v===undefined||v===null||v===''||v===false)return;out.setFontSize(Math.max(8,Math.min(14,h*.55)));if(f.type==='checkbox')out.text('X',x+w*.35,y+h*.72);else if(f.type==='signature')out.text(String(v),x+3,y+h*.68,{maxWidth:w-6});else out.text(String(v),x+3,y+Math.max(10,h*.55),{maxWidth:w-6});});c.width=1;c.height=1;
+      }
+      return out.output('datauristring').split(',')[1];
+    }
+</script>
 </body>
 </html>
