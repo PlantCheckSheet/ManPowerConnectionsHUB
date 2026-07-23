@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ManPowerConnections | Operative Portal v5.3 Visual Document Editor</title>
+  <title>ManPowerConnections | Operative Portal v7.0 Intelligent Job Work Packs</title>
 
   <link rel="apple-touch-icon" sizes="180x180" href="jao-icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="jao-icon-192.png">
@@ -1087,7 +1087,7 @@ window.addEventListener("load", function () {
             <div id="managerJobDocumentLink" class="small-note"></div>
           </div>
           <div class="creator-section">
-            <h3>2. Choose Folder</h3>
+            <h3>2. Choose Destination</h3>
             <label for="managerJobTargetFolder">Destination</label>
             <select id="managerJobTargetFolder">
               <option value="Required Documents">Required Documents</option>
@@ -1100,12 +1100,12 @@ window.addEventListener("load", function () {
           </div>
           <div class="creator-section">
             <h3>3. Select Files</h3>
-            <label for="managerJobDocumentFiles">Documents</label>
+            <label for="managerJobDocumentFiles">Documents or Excel Work Packs</label>
             <input id="managerJobDocumentFiles" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
-            <div id="managerJobDocumentSummary" class="upload-summary"></div>
+            <div class="small-note" style="margin-bottom:10px;"><strong>Excel files:</strong> automatically converted into editable work packs. PDFs, Word files and images are stored normally in the selected folder.</div><div id="managerJobDocumentSummary" class="upload-summary"></div>
           </div>
           <div class="creator-section creator-wide">
-            <button id="uploadManagerJobDocumentsButton" class="button" type="button" onclick="uploadFilesToSelectedManagerJob()">Upload to Selected Job</button>
+            <button id="uploadManagerJobDocumentsButton" class="button" type="button" onclick="uploadFilesToSelectedManagerJob()">Intelligent Upload</button>
             <div id="managerJobDocumentsMessage"></div>
           </div>
           <div class="creator-section creator-wide">
@@ -1882,15 +1882,19 @@ window.addEventListener("load", function () {
         for (let i=0;i<files.length;i++) {
           const file=files[i];
           if (file.size > 6*1024*1024) throw new Error(`${file.name} is larger than the 6 MB upload limit.`);
-          message.innerHTML=`<div class="section-intro">Uploading ${safeText(file.name)} (${i+1}/${files.length}) to ${safeText(targetFolder)}...</div>`;
+          const isExcel = /\.(xlsx|xlsm|xls)$/i.test(file.name);
+          message.innerHTML=`<div class="section-intro">${isExcel ? "Creating editable work pack from" : "Uploading"} ${safeText(file.name)} (${i+1}/${files.length})...</div>`;
+          if (isExcel) startProcessingOverlay(file.name);
           const base64=await fileToBase64(file);
-          await apiPost({ action:"uploadManagerJobDocument", managerName:currentManager.name, token:currentManager.token, folderId, targetFolder, fileName:file.name, mimeType:file.type || "application/octet-stream", base64 });
+          const result = await apiPost({ action:"uploadIntelligentJobDocument", managerName:currentManager.name, token:currentManager.token, folderId, targetFolder, fileName:file.name, mimeType:file.type || "application/octet-stream", base64 });
+          if (isExcel) completeProcessingOverlay(result);
         }
-        message.innerHTML=`<div class="success"><strong>${files.length} document${files.length===1?"":"s"} uploaded.</strong><br>Saved in ${safeText(targetFolder)}.</div>`;
+        message.innerHTML=`<div class="success"><strong>${files.length} file${files.length===1?"":"s"} processed successfully.</strong><br>Excel workbooks are now editable work packs; all other files were stored normally.</div>`;
         document.getElementById("managerJobDocumentFiles").value="";
         renderSelectedFiles("managerJobDocumentFiles","managerJobDocumentSummary");
         await loadSelectedManagerJobDocuments();
       } catch (error) {
+        if (processingActive) failProcessingOverlay(error.message);
         message.innerHTML=`<div class="error">${safeText(error.message)}</div>`;
       } finally { button.disabled=false; }
     }
